@@ -1,0 +1,14 @@
+app==0.0.1
+colorlog==6.6.0
+fhir==0.0.4
+fhir.resources==6.4.0
+fhir_pyrate==0.2.0b6
+holidays==0.13
+matplotlib==3.5.1
+numpy==1.22.3
+pandas==1.4.2
+PyYAML==6.0
+requests==2.28.1
+schedule==1.1.0
+tqdm==4.64.0
+wandb==0.13.2

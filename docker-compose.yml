@@ -1,0 +1,35 @@
+version: '2.3'
+
+services:
+  autopilot_predict:
+    build:
+      context: .
+      dockerfile: "Dockerfile"
+    user: $DOCKER_USER:$DOCKER_GROUP
+    cpus: 4
+    image: "merengelke/autopilot_predict"
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=1
+      - FHIR_USER=$FHIR_USER
+      - FHIR_PASSWORD=$FHIR_PASSWORD
+      - DOCKER_USER=$DOCKER_USER
+      - DOCKER_GROUP=$DOCKER_GROUP
+      - SEARCH_URL=$SEARCH_URL
+      - BASIC_AUTH=$BASIC_AUTH
+      - REFRESH_AUTH=$REFRESH_AUTH
+      - DICOM_WEB_URL_GEPACS=$DICOM_WEB_URL_GEPACS
+      - DICOM_WEB_URL_EA=$DICOM_WEB_URL_EA
+      - DICOM_WEB_URL_CHILI=$DICOM_WEB_URL_CHILI
+    volumes:
+      - ./app:/autopilot/app
+      - /etc/passwd:/etc/passwd:ro
+      - /etc/group:/etc/group:ro
+      - /nvme/shared/autopilot:/data
+    working_dir: /autopilot
+    shm_size: '1gb'
+
+networks:
+  default:
+    external:
+      name: parmar

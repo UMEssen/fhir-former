@@ -1,0 +1,8 @@
+.vscode
+wandb
+.venv
+data.json
+.idea
+.envrc
+.DS_Store
+helper
