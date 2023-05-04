@@ -204,7 +204,7 @@ class EncounterTokenBuilder:
         args = [(pat,) for pat in self.store.pat.patient_id[:5000]]
 
         with ProcessPoolExecutor(
-            max_workers=40, initializer=make_store_global, initargs=(self.store,)
+            max_workers=1, initializer=make_store_global, initargs=(self.store,)
         ) as executor:
             results_iter = list(
                 tqdm(

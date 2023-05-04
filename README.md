@@ -1,5 +1,7 @@
-[//]: # (# autopilot_clean)
+[//]: # (# icd)
 
-Repo for AP ML Monitor 
+Repo for downstreaming task for predicting ICD-Root Codes from clinical data
 
-This repo can predict the EK and TK usage at the UKE
+Model: Tranformer based models (BERT, RoBERTa)
+Input: Patient-Data, Encounters, Procedures, Conditions
+Label: ICD-Root Codes
