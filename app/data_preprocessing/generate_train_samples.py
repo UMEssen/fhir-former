@@ -107,7 +107,7 @@ class EncounterTokenBuilder:
 
     @staticmethod
     def process_patient(args):
-        (pat, ) = args
+        (pat,) = args
         store = store_global
         pat_data = DataStore.filter_patient(store, patient_id=pat)
         sample_list = []
@@ -138,10 +138,9 @@ class EncounterTokenBuilder:
             # Calculate duration in days and append to 'enc_clean'
             duration = (enc["end"] - enc["start"]).days
             enc = pd.concat(
-                [enc, pd.Series({"duration in hospital": duration})], axis=0
+                [enc, pd.Series({"duratioin hospital": duration})], axis=0
             )
 
-            # print(enc.columns)
             enc_clean = enc[
                 ~enc.index.isin(
                     [
@@ -202,9 +201,11 @@ class EncounterTokenBuilder:
     def build_encounter_token(self) -> None:
         print("starting pool")
 
-        args = [(pat, ) for pat in self.store.pat.patient_id[:5000]]
+        args = [(pat,) for pat in self.store.pat.patient_id[:5000]]
 
-        with ProcessPoolExecutor(max_workers=80, initializer=make_store_global, initargs=(self.store,)) as executor:
+        with ProcessPoolExecutor(
+            max_workers=40, initializer=make_store_global, initargs=(self.store,)
+        ) as executor:
             results_iter = list(
                 tqdm(
                     executor.map(
@@ -215,7 +216,6 @@ class EncounterTokenBuilder:
                     desc="Processing patients",
                 )
             )
-
 
         results = list(results_iter)
         sample_list = [sample for sublist in results for sample in sublist]
@@ -230,7 +230,7 @@ class EncounterTokenBuilder:
 
 
 def main(config) -> None:
-    if not os.path.exists(config["sample_path"]) or config["reload_cache"]:
+    if not os.path.exists(config["sample_path"]) or config["reload_cache"] or True:
         enc_token_builder = EncounterTokenBuilder(config)
         enc_token_builder.build_encounter_token()
 

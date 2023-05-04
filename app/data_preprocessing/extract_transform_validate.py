@@ -113,7 +113,7 @@ class FHIRExtractor:
             self.search = Pirate(
                 auth=auth,
                 base_url=SEARCH_URL,
-                num_processes=64,
+                num_processes=25,
                 retry_requests=Retry(
                     total=3,  # Retries for a total of three times
                     backoff_factor=0.5,

@@ -124,7 +124,7 @@ def train_publish_pipline_controller():
 def parse_args_local() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--root_dir", type=Path, required=False, default="/nvme/merengelke/icd_pred/"
+        "--root_dir", type=Path, required=False, default=config["root_dir"]
     )
 
     parser.add_argument(

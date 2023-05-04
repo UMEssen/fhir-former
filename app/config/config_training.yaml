@@ -11,7 +11,7 @@ start_datetime: '01-01-2017'
 end_datetime: '01-01-2023'
 
 #set root dir
-root_dir: "/nvme/merengelke/icd_pred"
+root_dir: "/local/work/merengelke/icd_pred"
 
 # Whether we should read the bundles from a cache folder, in case they have already been computed
 read_from_fhir_cache: False
