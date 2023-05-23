@@ -20,21 +20,21 @@ def main(config):
     procedure_path_filtered = Path(config["procedure_path_filtered"])
     condition_path = Path(config["condition_path"])
     condition_path_filtered = Path(config["condition_path_filtered"])
+    patient_path_parents = Path(config["patient_parent_path_filtered"])
 
     extract = FHIRExtractor(config)
     filter = FHIRFilter(config)
     validator = FHIRValidator(config)
 
-    # Condition -> code, display, recordedDate
-    if not condition_path.exists() or config["reload_cache"]:
-        logging.info(f"Extracting Condition Data")
-        extract.build_condition()
+    # Filters
+    # Only stationary patients
+    # Encounters must be at least 2 day long
+    # Trash 50 % of all patients as they shall still be used in other studies or downstream tasks
 
-    if not condition_path_filtered.exists() or config["reload_cache"]:
-        logging.info("Filtering relevant conditions")
-        filter.filter_conditions()
-        logging.info("Validating conditions")
-        validator.validate_conditions()
+    # 1. Encounter -> Take only IMG (impatient encounters), 2010-2022  -> 2021-2022 for test
+    # 2. Condition -> Take ENC cohort -> Take only pats which have at least x conditions
+    # 3. Procedure -> Pats from condition
+    # 4. Patient -> Pats from condition
 
     # Encounter; Case -> Start, End, Department
     if not encounter_path.exists() or config["reload_cache"]:
@@ -57,6 +57,22 @@ def main(config):
         filter.filter_patient()
         logging.info("Validating Patient...")
         validator.validate_patient()
+
+    # find patient parent ids
+    if not patient_path_parents.exists() or config["reload_cache"]:
+        logging.info(f"Finding patient metas")
+        extract.build_filter_patient_parents()
+
+    # Condition -> code, display, recordedDate
+    if not condition_path.exists() or config["reload_cache"]:
+        logging.info(f"Extracting Condition Data")
+        extract.build_condition()
+
+    if not condition_path_filtered.exists() or config["reload_cache"]:
+        logging.info("Filtering relevant conditions")
+        filter.filter_conditions()
+        logging.info("Validating conditions")
+        validator.validate_conditions()
 
     # Procedure -> Procedure Code, Procedure Root Code, Practitioner, performedDateTime, cat -> med -> Hauptdiagnose
     if not procedure_path.exists() or config["reload_cache"]:

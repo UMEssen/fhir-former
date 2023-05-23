@@ -7,28 +7,37 @@
 is_live_prediction: False
 
 # filter times for training data
-start_datetime: '01-01-2017'
-end_datetime: '01-01-2023'
+start_datetime: '01-01-2021'
+end_datetime: '01-01-2022'
 
-#set root dir
-root_dir: "/local/work/merengelke/icd_pred"
+# dir for G15
+root_dir: "/local/work/merengelke/ship_former_pre_train"
+# dir for SHIPGPU
+#root_dir: "/nvme/merengelke/ship_former_pre_train"
+
 
 # Whether we should read the bundles from a cache folder, in case they have already been computed
-read_from_fhir_cache: False
+read_from_fhir_cache: True
 bundle_cache_folder_path: "./data_raw"
 
 # Enforce to reload fhir resources
 reload_cache: False
-train_sample_path: 'train_samples.json'
 
 # Patient
 patient_path: './data_raw/patient.ftr'
 patient_path_filtered: './data_filtered/patient.ftr'
 patient_params: {
-  '_count': 5000,
+  '_count': 1000,
   '_sort': '-date'
 }
 patient_constraints: {'_id': 'patient_id'}
+
+# Patient parents
+patient_parent_path_filtered: './data_filtered/patient_parents.ftr'
+patient_parent_params: {
+  '_count': 5000,
+}
+patient_parent_constraints: {'link': 'patient_id'}
 
 # Encounter
 encounter_path: './data_raw/encounter.ftr'
@@ -73,7 +82,6 @@ procedure_constraints: {'subject': 'patient_id'}
 # Condition
 condition_path: './data_raw/condition.ftr'
 condition_path_filtered: './data_filtered/condition.ftr'
-condition_path_filtered_main_diag: './data_filtered/condition_main_diag.ftr'
 condition_params: {
   '_count': 1000,
   '_sort': '-recorded-date'
@@ -100,7 +108,8 @@ medication_admin_params: {
 
 
 # Train Samples
-sample_path: './samples.json'
+train_sample_path: './train_samples.json'
+val_sample_path: './val_samples.json'
 
 # wandb
 wandb_project_name: 'autopilot_global_7d'

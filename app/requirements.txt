@@ -17,6 +17,5 @@ datasets
 evaluate
 seaborn
 torch
-sklearn
-
+scikit-learn
 

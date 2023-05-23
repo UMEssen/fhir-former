@@ -22,7 +22,14 @@ REFRESH_AUTH = os.environ["REFRESH_AUTH"]
 FHIR_USER = os.environ["FHIR_USER"]
 FHIR_PASSWORD = os.environ["FHIR_PASSWORD"]
 
-# Authentication
+# # Authentication
+# auth = Ahoy(
+#     auth_method=None,
+#     token=FHIR_TOKEN,
+#     username=FHIR_USER,
+#     refresh_url=REFRESH_AUTH,
+# )
+
 auth = Ahoy(
     auth_method="env",
     username=FHIR_USER,
@@ -93,7 +100,7 @@ class FHIRExtractor:
             self.search = Pirate(
                 auth=auth,
                 base_url=SEARCH_URL,
-                num_processes=1,
+                num_processes=10,
                 cache_folder=self.config["bundle_cache_folder_path"],
                 retry_requests=Retry(
                     total=3,  # Retries for a total of three times
@@ -113,7 +120,7 @@ class FHIRExtractor:
             self.search = Pirate(
                 auth=auth,
                 base_url=SEARCH_URL,
-                num_processes=25,
+                num_processes=5,
                 retry_requests=Retry(
                     total=3,  # Retries for a total of three times
                     backoff_factor=0.5,
@@ -123,6 +130,7 @@ class FHIRExtractor:
                         502,
                         503,
                         504,
+                        404,
                     ],  # HTTP status codes that we should force a retry on
                     allowed_methods=[
                         "GET"
@@ -171,26 +179,27 @@ class FHIRExtractor:
         return records
 
     def build_patient(self):
-        conds = pd.read_feather(self.config["condition_path_filtered_main_diag"])
+        encs = pd.read_feather(self.config["encounter_path_filtered"])
+        encs = encs.drop_duplicates(subset=["patient_id"], keep="first")
 
         df = self.search.trade_rows_for_dataframe(
-            df=conds,
+            df=encs,
             df_constraints=self.config["patient_constraints"],
             resource_type="Patient",
             request_params=self.config["patient_params"],
         )
+        print(len(df))
 
         df.reset_index(drop=True, inplace=False).to_feather(self.config["patient_path"])
 
     # Building Encounter DataFrame
     def build_encounter(self):
-        cond = pd.read_feather(self.config["condition_path_filtered_main_diag"])
-
-        df = self.search.trade_rows_for_dataframe(
-            df=cond,
-            df_constraints=self.config["encounter_constraints"],
+        df = self.search.sail_through_search_space_to_dataframe(
             resource_type="Encounter",
             request_params=self.config["encounter_params"],
+            time_attribute_name="date",
+            date_init=self.config["start_datetime"],
+            date_end=self.config["end_datetime"],
         )
 
         df.reset_index(drop=True, inplace=False).to_feather(
@@ -510,20 +519,18 @@ class FHIRExtractor:
         return records
 
     def build_procedure(self):
-        cond = pd.read_feather(self.config["condition_path_filtered_main_diag"])
-        df = self.search.trade_rows_for_dataframe(
-            df=cond,
+        df = self.search.sail_through_search_space_to_dataframe(
             process_function=self.extract_procedure,
-            df_constraints=self.config["procedure_constraints"],
             resource_type="Procedure",
             request_params=self.config["patient_params"],
+            time_attribute_name="date",
+            date_init=self.config["start_datetime"],
+            date_end=datetime.datetime.now().date(),
         )
 
         df.procedure_start = df.procedure_start.astype(str)
         df.procedure_end = df.procedure_end.astype(str)
-        df.reset_index(drop=True, inplace=False).to_feather(
-            self.config["procedure_path"]
-        )
+        df.reset_index(drop=True).to_feather(self.config["procedure_path"])
 
     # Building Condition DataFrame
     def build_condition(self):
@@ -793,6 +800,52 @@ class FHIRExtractor:
             self.config["medication_merged_path"]
         )
 
+    def build_filter_patient_parents(self):
+        encs = pd.read_feather(self.config["encounter_path_filtered"])
+        encs = encs.drop_duplicates(subset=["patient_id"], keep="first")
+
+        secondary_df = (
+            self.search.trade_rows_for_dataframe(
+                df=encs,
+                df_constraints={"link": "patient_id"},
+                resource_type="Patient",
+                fhir_paths=[
+                    ("linked_patient_id", "link.other.reference"),
+                    ("meta_patient", "id"),
+                ],
+                with_ref=True,
+            )
+            .explode("linked_patient_id")
+            .replace({"Patient/": ""}, regex=True)
+        ).drop_duplicates()
+
+        secondary_df.reset_index(drop=True).to_feather(
+            self.config["patient_parent_path"]
+        )
+
+        merged_df = pd.merge(
+            encs[["patient_id"]], secondary_df, on="patient_id", how="outer"
+        )
+
+        grouped_patients = self.search.smash_rows(
+            merged_df,
+            group_by_col="patient_id",
+            separator=",",
+            unique=True,
+            sort=True,
+        )
+
+        grouped_patients["linked_patient_id"] = grouped_patients.apply(
+            lambda x: x.linked_patient_id
+            if not pd.isnull(x.linked_patient_id)
+            else x.patient_id,
+            axis=1,
+        )
+
+        grouped_patients.reset_index(drop=True).to_feather(
+            self.config["patient_parent_path_filtered"]
+        )
+
 
 # Class FHIRExtractor
 class FHIRFilter:
@@ -825,7 +878,7 @@ class FHIRFilter:
                 "id",
                 "meta_extension_0_valueString",
                 "status",
-                "class_display",
+                "class_code",
                 "type_0_coding_0_code",
                 "type_2_coding_0_display",
                 "serviceType_coding_0_display",
@@ -864,13 +917,23 @@ class FHIRFilter:
         enc_filtered["start"] = pd.to_datetime(enc_filtered["start"])
         enc_filtered["end"] = pd.to_datetime(enc_filtered["end"])
 
-        # Filter encounters with duration < 2 days
+        # Filter encounters with duration <= 2 days
         enc_filtered = enc_filtered[
             enc_filtered["end"] - enc_filtered["start"] > pd.Timedelta(days=2)
         ]
 
         # Filter to keep only case encounters
         enc_filtered = enc_filtered[enc_filtered["type"] == "Case"]
+        # Filter to keep only inpatient encounters (stationary clinic encounters)
+        enc_filtered = enc_filtered[enc_filtered["v3-ActCode"] == "IMP"]
+        # Take only 50 % of the encounters
+        valid_pats = enc_filtered[
+            enc_filtered["patient_id"].str.startswith(
+                tuple(map(str, [0, 1, 2, 3, 4, 5, 6, 7]))
+            )
+        ]["patient_id"]
+        enc_filtered = enc_filtered[enc_filtered["patient_id"].isin(valid_pats)]
+
         enc_filtered.reset_index(drop=True).to_feather(
             self.config["encounter_path_filtered"]
         )
@@ -908,8 +971,31 @@ class FHIRFilter:
             df[k] = pd.to_datetime(df[k], format=v, utc=True, errors="coerce")
         return df
 
+    @staticmethod
+    def filter_by_meta_patients(df) -> pd.DataFrame:
+        # filtering out patients that are not in the patient table
+        pats = pd.read_feather(
+            "/local/work/merengelke/ship_former_pre_train/data_filtered/patient_parents.ftr"
+        )
+        pats_list = pats["linked_patient_id"].tolist()
+
+        def split_list_elements(input_list):
+            output_list = []
+            for item in input_list:
+                if "," in item:
+                    output_list.extend(item.split(","))
+                else:
+                    output_list.append(item)
+            return output_list
+
+        pats_list2 = split_list_elements(pats_list)
+
+        return df[df["patient_id"].isin(pats_list2)]
+
     def filter_procedures(self) -> None:
         pros = pd.read_feather(self.config["procedure_path"])
+
+        pros = self.filter_by_meta_patients(pros)
 
         pros_filtered = pros.dropna(subset=["encounter_id"])
         pros_filtered = pros_filtered[
@@ -971,6 +1057,8 @@ class FHIRFilter:
         conds = conds.dropna(subset=["encounter_id", "patient_id"])
 
         conds["patient_id"] = conds["patient_id"].str.split("/").str[-1]
+        conds = self.filter_by_meta_patients(conds)
+
         conds["encounter_id"] = conds["encounter_id"].str.split("/").str[-1]
         conds["practitioner_recoder_id"] = (
             conds["practitioner_recoder_id"].str.split("/").str[-1]
@@ -979,11 +1067,7 @@ class FHIRFilter:
         conds["code_med_hauptdiagnose"] = [
             True if x else False for x in conds["code_med_hauptdiagnose"]
         ]
-        conds[conds["code_med_hauptdiagnose"] == True].drop_duplicates(
-            subset=["patient_id"]
-        ).reset_index(drop=True).to_feather(
-            self.config["condition_path_filtered_main_diag"]
-        )
+
         conds.reset_index(drop=True).to_feather(self.config["condition_path_filtered"])
 
 
@@ -1020,6 +1104,7 @@ class FHIRValidator:
         na_counts = pats.isna().sum()
         self.na_checker("patient_id", na_counts, True)
         self.na_checker("gender", na_counts, True)
+        exit()
 
     def validate_bdp(self) -> None:
         bdp = pd.read_feather(self.config["bdp_path_filtered"])

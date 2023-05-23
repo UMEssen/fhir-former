@@ -10,6 +10,7 @@ import pickle
 from concurrent.futures import ProcessPoolExecutor
 
 from numpy import dtype
+from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 
@@ -124,22 +125,20 @@ class EncounterTokenBuilder:
             if len(con) == 0:
                 return []
 
-            con["condition_date"] = [
-                x.date() for x in pd.to_datetime(con["condition_date"])
-            ]
+            # Meta Constants
+            # Patient corner
+            pat_dict = {
+                "age": EncounterTokenBuilder.get_age_from_birth_date(
+                    pat_data.pat["birthDate"].values[0]
+                ),
+                "gender": pat_data.pat["gender"].values[0],
+                "insurance_type": pat_data.pat["insurance_type"].values[0],
+            }
 
-            con_label = con.loc[con["code_med_hauptdiagnose"]].reset_index(drop=True)
-            con_train = con.loc[~con["code_med_hauptdiagnose"]].reset_index(drop=True)
-
-            # todo challenge on ship-prod
-            if len(con_label) != 1:
-                return []
-
+            # Encounter corner
             # Calculate duration in days and append to 'enc_clean'
             duration = (enc["end"] - enc["start"]).days
-            enc = pd.concat(
-                [enc, pd.Series({"duratioin hospital": duration})], axis=0
-            )
+            enc = pd.concat([enc, pd.Series({"duration hospital": duration})], axis=0)
 
             enc_clean = enc[
                 ~enc.index.isin(
@@ -154,45 +153,65 @@ class EncounterTokenBuilder:
                     ]
                 )
             ]
-
             enc_dict = enc_clean.to_dict()
-            pat_dict = {
-                "age": EncounterTokenBuilder.get_age_from_birth_date(
-                    pat_data.pat["birthDate"].values[0]
-                ),
-                "gender": pat_data.pat["gender"].values[0],
-                "insurance_type": pat_data.pat["insurance_type"].values[0],
-            }
+            enc_str = EncounterTokenBuilder.dict_to_string(enc_dict)
+            pat_str = EncounterTokenBuilder.dict_to_string(pat_dict)
+
+            # Condition corner
+            con["condition_date"] = [
+                x.date() for x in pd.to_datetime(con["condition_date"])
+            ]
+            con_label = con.loc[con["code_med_hauptdiagnose"]].reset_index(drop=True)
+            # con_train = con.loc[~con["code_med_hauptdiagnose"]].reset_index(drop=True)
+
+            # todo challenge on ship-prod
+            if len(con_label) != 1:
+                return []
+            assert len(con_label) == 1, "Only one hauptdiagnose per encounter allowed"
 
             version = (
                 con_label["icd_version"].values[0] if len(con_label) else "unknown"
             )
 
+            # Procedure corner
             pro["procedure_start"] = [
                 x.date() for x in pd.to_datetime(pro["procedure_start"])
             ]
-
-            assert len(con_label) == 1, "Only one hauptdiagnose per encounter allowed"
-
-            version_str = EncounterTokenBuilder.dict_to_string({"version": version})
-            pat_str = EncounterTokenBuilder.dict_to_string(pat_dict)
-            pro_str = EncounterTokenBuilder.df_to_string(
-                pro, main_col=["code"], bracket_cols=["code_display", "procedure_start"]
+            version_str = EncounterTokenBuilder.dict_to_string(
+                {"ICD-Version:": version}
             )
-            con_str = EncounterTokenBuilder.df_to_string(
-                con_train,
-                main_col=["icd_code"],
-                bracket_cols=["icd_display", "condition_date"],
-            )
-            enc_str = EncounterTokenBuilder.dict_to_string(enc_dict)
 
-            text = f"Patient_Metadata:\n{pat_str}\n\nProcedures:\n{pro_str}\n\nConditions (version {version_str}):\n{con_str}\n\nEncounter:\n{enc_str}"
+            # Merge pro and con
+            con = con.rename(
+                columns={
+                    "icd_code": "code",
+                    "icd_display": "description",
+                    "condition_date": "date",
+                }
+            )
+            pro = pro.rename(
+                columns={"code_display": "description", "procedure_start": "date"}
+            )
+            combined = pd.concat(
+                [
+                    con[["code", "description", "date"]],
+                    pro[["code", "description", "date"]],
+                ]
+            ).reset_index(drop=True)
+            combined.sort_values(by="date", inplace=True)
+
+            combined_str = EncounterTokenBuilder.df_to_string(
+                combined,
+                main_col=["code"],
+                bracket_cols=["description", "date"],
+            )
+
+            text = f"Patient_Metadata:\n{pat_str}\n\nEncounter:\n{enc_str}\n\n{version_str}\n\nProcedures and Condition:\n{combined_str}"
 
             sample_list.append(
                 {
-                    "patient_id": str(pat),
-                    "encounter_id": str(enc["encounter_id"]),
-                    "label": con_label["icd_root_code"].values[0],
+                    # "patient_id": str(pat),
+                    # "encounter_id": str(enc["encounter_id"]),
                     "text": text,
                 }
             )
@@ -201,10 +220,10 @@ class EncounterTokenBuilder:
     def build_encounter_token(self) -> None:
         print("starting pool")
 
-        args = [(pat,) for pat in self.store.pat.patient_id[:5000]]
+        args = [(pat,) for pat in self.store.pat.patient_id[:20000]]
 
         with ProcessPoolExecutor(
-            max_workers=1, initializer=make_store_global, initargs=(self.store,)
+            max_workers=30, initializer=make_store_global, initargs=(self.store,)
         ) as executor:
             results_iter = list(
                 tqdm(
@@ -220,17 +239,22 @@ class EncounterTokenBuilder:
         results = list(results_iter)
         sample_list = [sample for sublist in results for sample in sublist]
 
-        # print(
-        #     f"Number of features: {len(enc_dict.keys()) + len(pat_dict.keys()) + len(pro.columns) + len(con_train.columns)}"
-        # )
+        # Split the sample list into train and validation sets
+        train_samples, val_samples = train_test_split(
+            sample_list, test_size=0.2, random_state=42
+        )
 
-        # Writing the list of dicts to a file
-        with open(self.config["sample_path"], "w") as outfile:
-            json.dump(sample_list, outfile, indent=4)
+        # Save the training samples
+        with open(self.config["train_sample_path"], "w") as outfile:
+            json.dump(train_samples, outfile, indent=4)
+
+        # Save the validation samples
+        with open(self.config["val_sample_path"], "w") as outfile:
+            json.dump(val_samples, outfile, indent=4)
 
 
 def main(config) -> None:
-    if not os.path.exists(config["sample_path"]) or config["reload_cache"] or True:
+    if not os.path.exists(config["train_sample_path"]) or config["reload_cache"]:
         enc_token_builder = EncounterTokenBuilder(config)
         enc_token_builder.build_encounter_token()
 
