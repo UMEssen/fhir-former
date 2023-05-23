@@ -17,31 +17,41 @@ from datasets import Dataset as HFDataset
 from torch.nn import functional as F
 
 
-
-def compute_metrics(eval_pred: EvalPrediction):
+def compute_metrics(eval_pred: EvalPrediction, batch_size=256):
     logits, labels = eval_pred
     predictions = np.argmax(logits, axis=-1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Convert numpy array to tensor and move to the correct device
-    logits = torch.from_numpy(logits).to(device)
-    labels = torch.from_numpy(labels).to(device)
+    num_batches = int(np.ceil(logits.shape[0] / batch_size))
+    perplexity = 0.0
 
-    # Now calculate the loss
-    masked_lm_loss = (
-        F.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1))
-        .detach()
-        .cpu()
-        .numpy()
-    )
+    for i in range(num_batches):
+        start_idx = i * batch_size
+        end_idx = start_idx + batch_size
 
-    perplexity = np.exp(masked_lm_loss)
+        # Convert numpy array to tensor and move to the correct device
+        logits_batch = torch.from_numpy(logits[start_idx:end_idx]).to(device)
+        labels_batch = torch.from_numpy(labels[start_idx:end_idx]).to(device)
+
+        # Now calculate the loss
+        masked_lm_loss = (
+            F.cross_entropy(
+                logits_batch.view(-1, logits_batch.size(-1)), labels_batch.view(-1)
+            )
+            .detach()
+            .cpu()
+            .numpy()
+        )
+
+        perplexity += np.exp(masked_lm_loss)
+
+    perplexity /= num_batches
     return {"perplexity": perplexity}
 
 
 class TrainingLossLoggingCallback(TrainerCallback):
     def on_epoch_end(self, args, state, control, logs=None, **kwargs):
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         last_loss_log = [x for x in state.log_history if "loss" in x]
         if last_loss_log:
             last_loss_log = last_loss_log[-1]
@@ -61,8 +71,8 @@ class PretrainLongformer:
         self.tokenizer = (
             tokenizer if tokenizer else AutoTokenizer.from_pretrained(model_name)
         )
-        self.train_texts = self.get_text(is_train=True)
-        self.val_texts = self.get_text(is_train=False)
+        self.train_texts = self.get_text(is_train=True, num_samples=None)
+        self.val_texts = self.get_text(is_train=False, num_samples=None)
 
     def get_text(self, is_train=True, num_samples=None):
         if is_train:
@@ -92,7 +102,7 @@ class PretrainLongformer:
     def pretrain(self, output_dir, num_train_epochs=2):
         logging.info("Starting pre-training...")
         wandb.init(
-            tags=["test"],
+            tags=["baseline"],
             project="ship_llm",
             name=f"{self.model_name.split('/')[-1]}_pretrain_{num_train_epochs}",
             mode="online",
@@ -106,14 +116,14 @@ class PretrainLongformer:
         raw_dataset = HFDataset.from_generator(self.data_generator_train)
         train_dataset = raw_dataset.map(
             lambda examples: self.tokenizer(
-                examples["text"], truncation=True, padding="max_length", max_length=128
+                examples["text"], truncation=True, padding="max_length", max_length=None
             )
         )
 
         raw_dataset = HFDataset.from_generator(self.data_generator_val)
         val_dataset = raw_dataset.map(
             lambda examples: self.tokenizer(
-                examples["text"], truncation=True, padding="max_length", max_length=128
+                examples["text"], truncation=True, padding="max_length", max_length=None
             )
         )
 
@@ -132,13 +142,11 @@ class PretrainLongformer:
             save_total_limit=2,
             load_best_model_at_end=True,
             report_to="wandb",
+            eval_accumulation_steps=50,
             # report_to="none",
             evaluation_strategy="epoch",
             save_strategy=IntervalStrategy.EPOCH,
-            # logging_steps=300,  # log loss every 100 steps
             fp16=True,
-            # gradient_accumulation_steps=8,
-            # gradient_checkpointing=True,
         )
 
         # Create the Trainer
@@ -166,7 +174,7 @@ def main(config):
     # Usage example
     pretrainer.pretrain(
         "/local/work/merengelke/icd_pred/results/pretrained_models/bert",
-        num_train_epochs=50,
+        num_train_epochs=60,
     )
 
 
