@@ -41,6 +41,7 @@ def compute_metrics(eval_pred: EvalPrediction):
 
 class TrainingLossLoggingCallback(TrainerCallback):
     def on_epoch_end(self, args, state, control, logs=None, **kwargs):
+        torch.cuda.empty_cache()
         last_loss_log = [x for x in state.log_history if "loss" in x]
         if last_loss_log:
             last_loss_log = last_loss_log[-1]
@@ -91,6 +92,7 @@ class PretrainLongformer:
     def pretrain(self, output_dir, num_train_epochs=2):
         logging.info("Starting pre-training...")
         wandb.init(
+            tags=["test"],
             project="ship_llm",
             name=f"{self.model_name.split('/')[-1]}_pretrain_{num_train_epochs}",
             mode="online",
