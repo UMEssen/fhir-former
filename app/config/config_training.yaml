@@ -11,7 +11,7 @@ start_datetime: '01-01-2021'
 end_datetime: '01-01-2022'
 
 # dir for G15
-root_dir: "/local/work/merengelke/ship_former_pre_train"
+root_dir: "/local/work/merengelke/ship_former"
 # dir for SHIPGPU
 #root_dir: "/nvme/merengelke/ship_former_pre_train"
 
@@ -106,13 +106,18 @@ medication_admin_params: {
   '_sort': '_lastUpdated'
 }
 
+# DownStream-Train Samples for ICD predictor
+ds_icd_train_sample_path: './ds_icd_train_samples.json'
+ds_icd_val_sample_path: './ds_icd_val_samples.json'
 
-# Train Samples
-train_sample_path: './train_samples.json'
-val_sample_path: './val_samples.json'
+# Pre-Train Samples
+train_sample_path: './pre_train_samples.json'
+val_sample_path: './pre_val_samples.json'
 
 # wandb
-wandb_project_name: 'autopilot_global_7d'
-bdp_filter: 'total_tkz'
+wandb_project_name: 'ship_llm'
+
+# results
+results_dir: './results'
 
 

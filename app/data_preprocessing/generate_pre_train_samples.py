@@ -220,7 +220,7 @@ class EncounterTokenBuilder:
     def build_encounter_token(self) -> None:
         print("starting pool")
 
-        args = [(pat,) for pat in self.store.pat.patient_id[:20000]]
+        args = [(pat,) for pat in self.store.pat.patient_id[:]]
 
         with ProcessPoolExecutor(
             max_workers=30, initializer=make_store_global, initargs=(self.store,)

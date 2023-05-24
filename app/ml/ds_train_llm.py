@@ -1,10 +1,11 @@
 import json
+from pathlib import Path
 
 import evaluate
 import numpy as np
 import torch
 import wandb
-from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import MultiLabelBinarizer
 from torch.utils.data import Dataset
 from transformers import (
     AutoTokenizer,
@@ -14,18 +15,16 @@ from transformers import (
     IntervalStrategy,
     EarlyStoppingCallback,
 )
+from torch.nn import BCEWithLogitsLoss
 import os
 from torch.utils.data import random_split
 from sklearn.metrics import precision_score, recall_score
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score
 from transformers import TrainerCallback
 
-
 from typing import Dict, Union
 
-os.environ["WANDB_PROJECT"] = "icd_former"
 os.environ["WANDB_LOG_MODEL"] = "end"
-
 
 class PatientEncounterDataset(Dataset):
     def __init__(self, file_path, tokenizer, max_length=None, num_samples=None):
@@ -34,12 +33,11 @@ class PatientEncounterDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
 
-        icds = [item["label"] for item in self.data]
+        icds = [item["labels"] for item in self.data]  # changed from "label" to "labels" as multiple labels can be assigned
         # Create a mapping of unique root ICD-10 codes to integers
         self.label_to_id = {}
-        for icd in icds:
-            if icd not in self.label_to_id:
-                self.label_to_id[icd] = len(self.label_to_id)
+        self.mlb = MultiLabelBinarizer()
+        self.labels = self.mlb.fit_transform(icds)
 
     def __len__(self):
         return len(self.data)
@@ -47,7 +45,6 @@ class PatientEncounterDataset(Dataset):
     def __getitem__(self, idx) -> Dict[str, Union[int, str, torch.Tensor]]:
         item = self.data[idx]
         text = item["text"]
-        label = item["label"]
         encoding = self.tokenizer(
             text,
             truncation=True,
@@ -60,8 +57,8 @@ class PatientEncounterDataset(Dataset):
             "patient_id": item["patient_id"],
             "encounter_id": item["encounter_id"],
             "text": item["text"],
-            "label_code": item["label"],
-            "label": self.label_to_id[item["label"]],
+            "label_codes": self.mlb.classes_,  # changed from "label_code" to "label_codes"
+            "labels": torch.Tensor(self.labels[idx]),  # changed from "label" to "labels"
             "input_ids": encoding["input_ids"],
             "attention_mask": encoding["attention_mask"],
         }
@@ -74,159 +71,144 @@ def softmax(x):
 
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    probabilities = softmax(logits)
+    predictions = (logits.sigmoid() > 0.5).astype(int)  # threshold at 0.5
+    probabilities = logits.sigmoid()
 
-    # Compute accuracy, F1-score, precision, and recall
-    accuracy = evaluate.load("accuracy").compute(
-        predictions=predictions, references=labels
-    )
-    f1 = evaluate.load("f1").compute(
-        predictions=predictions, references=labels, average="weighted"
-    )
-    precision = precision_score(
-        labels, predictions, average="weighted", zero_division=0
-    )
-    recall = recall_score(labels, predictions, average="weighted", zero_division=0)
+    # Compute label-based accuracy
+    accuracy = (predictions == labels).mean()
 
-    # Compute micro and macro F1-score
-    micro_f1 = f1_score(labels, predictions, average="micro")
-    macro_f1 = f1_score(labels, predictions, average="macro")
+    # Compute sample-based precision, recall, and F1-score
+    precision = precision_score(labels, predictions, average='samples')
+    recall = recall_score(labels, predictions, average='samples')
+    f1 = f1_score(labels, predictions, average='samples')
 
     # Create a binary representation of the labels and probabilities
     unique_classes = np.unique(np.concatenate((labels, predictions)))
-    lb = LabelBinarizer()
+    lb = MultiLabelBinarizer()
     lb.fit(unique_classes)
     binary_labels = lb.transform(labels)
     binary_probabilities = lb.transform(predictions)
 
-    # Compute AUC-ROC and AUC-PR only if there are at least two unique classes
-    # if len(unique_classes) > 1:
     try:
         auc_roc = roc_auc_score(
-            binary_labels, probabilities[:, unique_classes], multi_class="ovr"
-        )
-        macro_auc_pr = average_precision_score(
-            binary_labels, probabilities[:, unique_classes], average="macro"
-        )
-        micro_auc_pr = average_precision_score(
-            binary_labels, probabilities[:, unique_classes], average="micro"
+            binary_labels, probabilities[:, unique_classes], multi_class='ovr'
         )
     except ValueError:
         # Assign default values or skip these metrics
         auc_roc = None
-        macro_auc_pr = None
-        micro_auc_pr = None
 
     return {
-        "accuracy": f"{accuracy['accuracy']:.2f}",
-        "precision": f"{precision:.2f}",
-        "recall": f"{recall:.2f}",
-        "weighted_f1": f"{f1['f1']:.2f}",
-        "micro_f1": f"{micro_f1:.2f}",
-        "macro_f1": f"{macro_f1:.2f}",
-        "auc_roc": f"{auc_roc:.2f}" if auc_roc else None,
-        "macro_auc_pr": f"{macro_auc_pr:.2f}" if macro_auc_pr else None,
-        "micro_auc_pr": f"{micro_auc_pr:.2f}" if micro_auc_pr else None,
+        "accuracy": f"{accuracy}:.2f",
+        "precision": f"{precision}:.2f",
+        "recall": f"{recall}:.2f",
+        "f1": f"{f1}:.2f",
+        "auc_roc": f"{auc_roc}:.2f" if auc_roc else None,
     }
 
+class DS_Task_ICD_Predict:
+    def __init__(self, config, model_checkpoint: str, batch_size: int = 2, epochs: int = 2):
+        self.config = config
+        self.model_checkpoint = model_checkpoint
+        self.batch_size = batch_size
+        self.epochs = epochs
 
-def train_sequence_classification_model(
-    file_path: str, model_checkpoint: str, batch_size: int = 2, epochs: int = 2
-) -> None:
-    tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
-    dataset = PatientEncounterDataset(file_path, tokenizer, num_samples=20)
+    def train_sequence_classification_model(self) -> None:
+        tokenizer = AutoTokenizer.from_pretrained(self.model_checkpoint)
+        dataset = PatientEncounterDataset(self.file_path, tokenizer, num_samples=20)
 
-    # Calculate the lengths of the training and validation sets
-    train_ratio = 0.8
-    dataset_size = len(dataset)
-    train_size = int(dataset_size * train_ratio)
-    val_size = dataset_size - train_size
+        # Calculate the lengths of the training and validation sets
+        train_ratio = 0.8
+        dataset_size = len(dataset)
+        train_size = int(dataset_size * train_ratio)
+        val_size = dataset_size - train_size
 
-    # Split the dataset into training and validation sets
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+        # Split the dataset into training and validation sets
+        train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-    model = AutoModelForSequenceClassification.from_pretrained(
-        model_checkpoint, num_labels=len(dataset.label_to_id)
-    )
+        model = AutoModelForSequenceClassification.from_pretrained(
+            self.model_checkpoint, num_labels=len(dataset.label_to_id)
+        )
 
-    training_args = TrainingArguments(
-        output_dir="/local/work/merengelke/icd_pred/results/results",
-        num_train_epochs=epochs,
-        per_device_train_batch_size=batch_size,
-        logging_dir="/local/work/merengelke/icd_pred/results/logs",
-        evaluation_strategy="epoch",
-        # report_to="none",
-        save_total_limit=5,
-        save_strategy=IntervalStrategy.EPOCH,
-        fp16=True,
-        weight_decay=2e-5 * 0.1,
-        learning_rate=2e-5,
-        load_best_model_at_end=True,
-    )
+        model.config.problem_type = "multi_label_classification"  # specify problem type
+        model.loss = BCEWithLogitsLoss()  # specify loss function for multi-label
 
-    class TrainingLossLoggingCallback(TrainerCallback):
-        def on_log(self, args, state, control, logs=None, **kwargs):
-            if state.global_step > 0 and state.global_step % args.logging_steps == 0:
-                logs["train_loss"] = np.round(state.log_history[-1]["loss"], 4)
+        training_args = TrainingArguments(
+            output_dir=self.config["logging_dir"],
+            num_train_epochs=self.epochs,
+            per_device_train_batch_size=self.batch_size,
+            logging_dir=self.config["logging_dir"]+"/logs",
+            evaluation_strategy="epoch",
+            save_total_limit=2,
+            save_strategy=IntervalStrategy.EPOCH,
+            fp16=True,
+            weight_decay=2e-5 * 0.1,
+            learning_rate=2e-5,
+            load_best_model_at_end=True,
+        )
 
-    class BestScoreLoggingCallback(TrainerCallback):
-        def __init__(self):
-            self.best_scores = {}
+        class TrainingLossLoggingCallback(TrainerCallback):
+            def on_log(self, args, state, control, logs=None, **kwargs):
+                if state.global_step > 0 and state.global_step % args.logging_steps == 0:
+                    logs["train_loss"] = np.round(state.log_history[-1]["loss"], 4)
 
-        def on_log(self, args, state, control, model, tokenizer, logs=None, **kwargs):
-            if logs is None:
-                return
+        class BestScoreLoggingCallback(TrainerCallback):
+            def __init__(self):
+                self.best_scores = {}
 
-            # Define the keywords to include
-            keywords = ["f1", "auc", "precision", "recall", "accuracy"]
+            def on_log(self, args, state, control, model, tokenizer, logs=None, **kwargs):
+                if logs is None:
+                    return
 
-            # Generate the keys_to_include list based on the specified keywords
-            keys_to_include = [
-                k for k in logs.keys() if any(keyword in k for keyword in keywords)
-            ]
+                # Define the keywords to include
+                keywords = ["f1", "auc", "precision", "recall", "accuracy"]
 
-            # Filter the logs dictionary to only include keys that are in the specified list
-            filtered_logs = {k: v for k, v in logs.items() if k in keys_to_include}
+                # Generate the keys_to_include list based on the specified keywords
+                keys_to_include = [
+                    k for k in logs.keys() if any(keyword in k for keyword in keywords)
+                ]
 
-            # Check if a new best score is achieved
-            temp_dict = {}
-            for key, value in filtered_logs.items():
-                if key not in self.best_scores or self.best_scores[key] < value:
-                    self.best_scores[key] = value
-                    temp_dict[f"best_{key}"] = value
+                # Filter the logs dictionary to only include keys that are in the specified list
+                filtered_logs = {k: v for k, v in logs.items() if k in keys_to_include}
 
-            wandb.log(temp_dict)
+                # Check if a new best score is achieved
+                temp_dict = {}
+                for key, value in filtered_logs.items():
+                    if key not in self.best_scores or self.best_scores[key] < value:
+                        self.best_scores[key] = value
+                        temp_dict[f"best_{key}"] = value
 
-    wandb.init(project="icd_former", name=f"{model_checkpoint}")
-    wandb.run.log_code(".")
+                wandb.log(temp_dict)
 
-    early_stopping_callback = EarlyStoppingCallback(
-        early_stopping_patience=3,  # Number of steps with no improvement after which training will be stopped
-        early_stopping_threshold=0.0,  # Minimum change in the monitored metric to be considered as an improvement
-    )
+        wandb.init(project="icd_former", name=f"{self.model_checkpoint}")
+        wandb.run.log_code(".")
 
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=val_dataset,
-        compute_metrics=compute_metrics,
-        callbacks=[
-            TrainingLossLoggingCallback,
-            BestScoreLoggingCallback,
-            early_stopping_callback,
-        ],
-    )
+        early_stopping_callback = EarlyStoppingCallback(
+            early_stopping_patience=3,  # Number of steps with no improvement after which training will be stopped
+            early_stopping_threshold=0.0,  # Minimum change in the monitored metric to be considered as an improvement
+        )
 
-    trainer.train()
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=val_dataset,
+            compute_metrics=compute_metrics,
+            callbacks=[
+                TrainingLossLoggingCallback,
+                BestScoreLoggingCallback,
+                early_stopping_callback,
+            ],
+        )
 
-    trainer.save_model("/local/work/merengelke/icd_pred/results/model")
+        trainer.train()
+
+        trainer.save_model(Path(self.config["model_path"]) / "models")
 
 
 def main(config):
-    model_checkpoint = "whaleloops/KEPTlongformer-PMM3"
-    train_sequence_classification_model(config["sample_path"], model_checkpoint)
+    model_checkpoint = "bert-base-uncased"
+    ds_icd = DS_Task_ICD_Predict(config, model_checkpoint)
+    ds_icd.train_sequence_classification_model()
 
 
 # Usage example

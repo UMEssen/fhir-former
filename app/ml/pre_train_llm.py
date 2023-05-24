@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 import numpy as np
 import torch
@@ -16,6 +17,7 @@ from transformers import AutoTokenizer, AutoModelForMaskedLM
 from datasets import Dataset as HFDataset
 from torch.nn import functional as F
 
+os.environ["WANDB_LOG_MODEL"] = "end"
 
 def compute_metrics(eval_pred: EvalPrediction, batch_size=256):
     logits, labels = eval_pred
@@ -103,7 +105,7 @@ class PretrainLongformer:
         logging.info("Starting pre-training...")
         wandb.init(
             tags=["baseline"],
-            project="ship_llm",
+            project=self.config["wandb_project_name"],
             name=f"{self.model_name.split('/')[-1]}_pretrain_{num_train_epochs}",
             mode="online",
             # mode= "disabled",
@@ -141,8 +143,8 @@ class PretrainLongformer:
             per_device_eval_batch_size=1,
             save_total_limit=2,
             load_best_model_at_end=True,
-            report_to="wandb",
             eval_accumulation_steps=50,
+            report_to="wandb",
             # report_to="none",
             evaluation_strategy="epoch",
             save_strategy=IntervalStrategy.EPOCH,
@@ -173,7 +175,7 @@ def main(config):
     pretrainer = PretrainLongformer(model_checkpoint, config)
     # Usage example
     pretrainer.pretrain(
-        "/local/work/merengelke/icd_pred/results/pretrained_models/bert",
+        "/local/work/merengelke/ship_former/models",
         num_train_epochs=60,
     )
 

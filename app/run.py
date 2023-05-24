@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 from colorlog import ColoredFormatter
 
-from app.data_preprocessing import cache_builder, generate_train_samples
+from app.data_preprocessing import cache_builder, generate_ds_icd_samples
 from app.helper import data_visualization
 from app.ml import ds_train_llm, pre_train_llm
 
@@ -53,10 +53,17 @@ def build_cache():
     logger.info(f"Time taken: {(time.time() - start) / 60} minutes")
 
 
-def preprocess_resources():
+def preprocess_resources_pre_train():
     logger.info(f"Starting model training")
     start = time.time()
-    generate_train_samples.main(config)
+    generate_pre_train_samples.main(config)
+    logger.info(f"Time taken: {(time.time() - start) / 60} minutes")
+
+
+def preprocess_resources_ds():
+    logger.info(f"Starting model training")
+    start = time.time()
+    generate_ds_icd_samples.main(config)
     logger.info(f"Time taken: {(time.time() - start) / 60} minutes")
 
 
@@ -88,12 +95,26 @@ def train_publish_pipeline():
     logger.info(f"Process done. Time taken: {(end - start) / 60} minutes")
 
 
-def train_pipeline():
+def pre_train_pipeline():
     blocks = [
         set_paths,
         # TODO use fhir metrics to pull data for now we pretend the data is already there
         build_cache,
-        preprocess_resources,
+        preprocess_resources_pre_train,
+        launch_training,
+    ]
+    start = time.time()
+    for block in blocks:
+        block()
+    end = time.time()
+    logger.info(f"Process done. Time taken: {(end - start) / 60} minutes")
+
+
+def ds_train_pipeline():
+    blocks = [
+        set_paths,
+        build_cache,
+        preprocess_resources_ds,
         launch_training,
     ]
     start = time.time()
@@ -141,6 +162,12 @@ def parse_args_local() -> None:
         required=False,
         default=False,
     )
+    parser.add_argument(
+        "--is_ds",
+        type=lambda x: (str(x).lower() == "true"),
+        required=False,
+        default=False,
+    )
     args = parser.parse_args()
     config.update(vars(args))
 
@@ -150,6 +177,8 @@ if __name__ == "__main__":
 
     if config["is_live_prediction"]:
         train_publish_pipline_controller()
+    elif config["is_ds"]:
+        ds_train_pipeline()
     else:
-        train_pipeline()
+        pre_train_pipeline()
         # visualize_pipeline()
