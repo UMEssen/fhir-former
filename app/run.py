@@ -10,12 +10,16 @@ from pathlib import Path
 import yaml
 from colorlog import ColoredFormatter
 
-from app.data_preprocessing import cache_builder, generate_ds_icd_samples
+from app.data_preprocessing import (
+    cache_builder,
+    generate_ds_icd_samples,
+    generate_pre_train_samples,
+)
 from app.helper import data_visualization
 from app.ml import ds_train_llm, pre_train_llm
 
 logger = logging.getLogger(__name__)
-LOG_LEVEL = logging.ERROR
+LOG_LEVEL = logging.INFO
 logging.root.setLevel(LOG_LEVEL)
 formatter = ColoredFormatter(
     "%(log_color)s[%(levelname).1s %(log_color)s%(asctime)s] - %(log_color)s%(name)s %(reset)s- "
@@ -78,7 +82,13 @@ def launch_training():
     logger.info(f"Starting model training")
     start = time.time()
     pre_train_llm.main(config)
-    # pre_train_llm_ds.main(config)
+    logger.info(f"Time taken: {(time.time() - start) / 60} minutes")
+
+
+def launch_ds_training():
+    logger.info(f"Starting model training on downstream task")
+    start = time.time()
+    ds_train_llm.main(config)
     logger.info(f"Time taken: {(time.time() - start) / 60} minutes")
 
 
@@ -115,7 +125,7 @@ def ds_train_pipeline():
         set_paths,
         build_cache,
         preprocess_resources_ds,
-        launch_training,
+        launch_ds_training,
     ]
     start = time.time()
     for block in blocks:

@@ -1104,7 +1104,6 @@ class FHIRValidator:
         na_counts = pats.isna().sum()
         self.na_checker("patient_id", na_counts, True)
         self.na_checker("gender", na_counts, True)
-        exit()
 
     def validate_bdp(self) -> None:
         bdp = pd.read_feather(self.config["bdp_path_filtered"])

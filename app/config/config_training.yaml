@@ -107,17 +107,21 @@ medication_admin_params: {
 }
 
 # DownStream-Train Samples for ICD predictor
+pre_uq_pats_for_ds_task: './pre_uq_pats_for_ds_task.pkl'
 ds_icd_train_sample_path: './ds_icd_train_samples.json'
-ds_icd_val_sample_path: './ds_icd_val_samples.json'
+ds_icd_test_sample_path: './ds_icd_test_samples.json'
 
 # Pre-Train Samples
 train_sample_path: './pre_train_samples.json'
 val_sample_path: './pre_val_samples.json'
+eval_accumulation_steps: 5
 
 # wandb
 wandb_project_name: 'ship_llm'
 
 # results
 results_dir: './results'
+logging_dir: './logs'
+model_dir: './models'
 
 

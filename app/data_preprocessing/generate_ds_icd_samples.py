@@ -1,6 +1,5 @@
 import json
 import logging
-import multiprocessing as mp
 import os
 from dataclasses import dataclass
 from datetime import datetime
@@ -9,9 +8,8 @@ import pandas as pd
 from pathlib import Path
 import pickle
 from concurrent.futures import ProcessPoolExecutor
+from app.data_preprocessing.generate_pre_train_samples import EncounterTokenBuilder as ETB
 
-from numpy import dtype
-from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 
@@ -274,9 +272,9 @@ class EncounterTokenBuilder:
                     }
                 )
 
-            samples = pd.DataFrame(sample_list)
 
             # todo run this if more resources are added to make sure the labels are valid
+            # samples = pd.DataFrame(sample_list)
             # duplicate_patients = samples[
             #     samples.duplicated(subset=["patient_id"], keep=False)
             # ]
@@ -311,19 +309,26 @@ class EncounterTokenBuilder:
 
         results = list(results_iter)
         sample_list = [sample for sublist in results for sample in sublist]
+        patient_ids = list(set([sample['patient_id'] for sample in sample_list]))
 
-        # Split the sample list into train and validation sets
-        train_samples, val_samples = train_test_split(
-            sample_list, test_size=0.2, random_state=42
-        )
+        patient_ids_validation = pd.read_pickle(self.config["pre_uq_pats_for_ds_task"])
+        patient_ids_train = [x for x in patient_ids if x not in patient_ids_validation]
+
+        print(f"Ratio of patients in train set: {len(patient_ids_train)/len(patient_ids)}")
+        if not 0.75 < len(patient_ids_train)/len(patient_ids) < 0.85:
+            raise ValueError("Ratio of patients in train/val set is not between 0.75 and 0.85")
+            # if it is less you can't really do anything
+            # if it is more you can add more patients to the train set
+
+        train_samples, test_samples = ETB.get_split_samples(sample_list)
 
         # Save the training samples
         with open(self.config["ds_icd_train_sample_path"], "w") as outfile:
             json.dump(train_samples, outfile, indent=4)
 
-        # Save the validation samples
-        with open(self.config["ds_icd_val_sample_path"], "w") as outfile:
-            json.dump(val_samples, outfile, indent=4)
+        # Note: Test samples are not used in downstream tasks and never touched
+        with open(self.config["ds_icd_test_sample_path"], "w") as outfile:
+            json.dump(test_samples, outfile, indent=4)
 
 
 def main(config) -> None:
