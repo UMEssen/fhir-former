@@ -22,6 +22,10 @@ def main(config):
     condition_path_filtered = Path(config["condition_path_filtered"])
     patient_path_parents = Path(config["patient_parent_path_filtered"])
 
+    # METRICS
+    observation_path = Path(config["observation_path"])
+    observation_path_filtered = Path(config["observation_path_filtered"])
+
     extract = FHIRExtractor(config)
     filter = FHIRFilter(config)
     validator = FHIRValidator(config)
@@ -33,8 +37,8 @@ def main(config):
 
     # 1. Encounter -> Take only IMG (impatient encounters), 2010-2022  -> 2021-2022 for test
     # 2. Condition -> Take ENC cohort -> Take only pats which have at least x conditions
-    # 3. Procedure -> Pats from condition
-    # 4. Patient -> Pats from condition
+    # 3. Procedure -> Pats from enc
+    # 4. Patient -> Pats from enc
 
     # Encounter; Case -> Start, End, Department
     if not encounter_path.exists() or config["reload_cache"]:
@@ -73,6 +77,7 @@ def main(config):
         filter.filter_conditions()
         logging.info("Validating conditions")
         validator.validate_conditions()
+        exit(0)
 
     # Procedure -> Procedure Code, Procedure Root Code, Practitioner, performedDateTime, cat -> med -> Hauptdiagnose
     if not procedure_path.exists() or config["reload_cache"]:
@@ -84,3 +89,8 @@ def main(config):
         filter.filter_procedures()
         logging.info("Validating Procedure...")
         validator.validate_procedures()
+
+    if not observation_path.exists() or config["reload_cache"]:
+        logging.info(f"Extracting Observation...")
+        extract.build_observation()
+        # TODO add filter and validation, obs needs Reports + Tumor Docus

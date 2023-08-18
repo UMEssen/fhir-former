@@ -1,8 +1,9 @@
+import datetime
 import json
 import logging
+import os
 from pathlib import Path
 
-import evaluate
 import numpy as np
 import torch
 import wandb
@@ -18,13 +19,13 @@ from transformers import (
     EarlyStoppingCallback,
 )
 from torch.nn import BCEWithLogitsLoss
-import os
 from torch.utils.data import random_split
 from sklearn.metrics import precision_score, recall_score
 from sklearn.metrics import f1_score
 from transformers import TrainerCallback
-
 from typing import Dict, Union, List
+
+from app.ml import train_helper
 
 
 class PatientEncounterDataset(Dataset):
@@ -64,6 +65,11 @@ class PatientEncounterDataset(Dataset):
             ),  # changed from "label" to "labels"
             "input_ids": encoding["input_ids"],
             "attention_mask": encoding["attention_mask"],
+            "decoded_labels": [
+                self.mlb.classes_[i]
+                for i, label in enumerate(self.labels[idx])
+                if label == 1
+            ],
         }
 
 
@@ -72,23 +78,68 @@ def softmax(x):
     return e_x / np.sum(e_x, axis=-1, keepdims=True)
 
 
-
-
-
 class DS_Task_ICD_Predict:
     def __init__(
         self, config, model_checkpoint: str, batch_size: int = 2, epochs: int = 2
     ):
         self.config = config
-        self.model_checkpoint = model_checkpoint
+        run = wandb.init(
+            project="ds_icd_former",
+            name=f"{model_checkpoint}",
+            mode="online",
+            # mode="disabled",
+            tags=["test"],
+        )
+        self.model_checkpoint = (
+            model_checkpoint
+            if not config["artifact"]
+            else run.use_artifact(config["artifact"], type="model").download()
+        )
         self.batch_size = batch_size
         self.epochs = epochs
-        tokenizer = AutoTokenizer.from_pretrained(self.model_checkpoint)
+
+        if self.config["artifact"]:
+            logging.info("Using artifact")
+            logging.info(
+                "Make sure the model_checkpoint matches the artifact base model"
+            )
+            print(self.model_checkpoint)
+            print(os.listdir(self.model_checkpoint))
+            print(type(self.model_checkpoint))
+            run.tags = run.tags + ("pretrained",)
+
+        # todo load the tokenizer from the artifact once it is avaiable
+        tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
         self.dataset = PatientEncounterDataset(
             self.config["ds_icd_train_sample_path"], tokenizer, num_samples=None
         )
-        label_freq = np.sum(self.dataset.labels, axis=0) # sum over the column (each label)
-        self.top10_classes = label_freq.argsort()[-10:][::-1] # find top 10 most common classes
+        label_freq = np.sum(
+            self.dataset.labels, axis=0
+        )  # sum over the column (each label)
+        self.top10_classes = label_freq.argsort()[-10:][
+            ::-1
+        ]  # find top 10 most common classes
+
+        # Calculate the lengths of the training and validation sets
+        train_ratio = 0.8
+        dataset_size = len(self.dataset)
+        train_size = int(dataset_size * train_ratio)
+        val_size = dataset_size - train_size
+
+        # Split the dataset into training and validation sets
+        self.train_dataset, self.val_dataset = random_split(
+            self.dataset, [train_size, val_size]
+        )
+        logging.info(f"total samples: {len(self.train_dataset)+len(self.val_dataset)}")
+
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            self.model_checkpoint, num_labels=len(self.dataset.mlb.classes_)
+        )
+
+        self.model.config.problem_type = (
+            "multi_label_classification"  # specify problem type
+        )
+        self.model.loss = BCEWithLogitsLoss()  # specify loss function for multi-label
 
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
@@ -124,12 +175,22 @@ class DS_Task_ICD_Predict:
         labels_top10 = labels[:, self.top10_classes]
         predictions_top10 = predictions[:, self.top10_classes]
 
-        macro_top10_precision = precision_score(labels_top10, predictions_top10, average='macro')
-        macro_top10_recall = recall_score(labels_top10, predictions_top10, average='macro')
-        macro_top10_f1 = f1_score(labels_top10, predictions_top10, average='macro')
-        weighted_top10_precision = precision_score(labels_top10, predictions_top10, average='weighted')
-        weighted_top10_recall = recall_score(labels_top10, predictions_top10, average='weighted')
-        weighted_top10_f1 = f1_score(labels_top10, predictions_top10, average='weighted')
+        macro_top10_precision = precision_score(
+            labels_top10, predictions_top10, average="macro"
+        )
+        macro_top10_recall = recall_score(
+            labels_top10, predictions_top10, average="macro"
+        )
+        macro_top10_f1 = f1_score(labels_top10, predictions_top10, average="macro")
+        weighted_top10_precision = precision_score(
+            labels_top10, predictions_top10, average="weighted"
+        )
+        weighted_top10_recall = recall_score(
+            labels_top10, predictions_top10, average="weighted"
+        )
+        weighted_top10_f1 = f1_score(
+            labels_top10, predictions_top10, average="weighted"
+        )
 
         metrics["eval_macro_top10_precision"] = np.round(macro_top10_precision, 2)
         metrics["eval_macro_top10_recall"] = np.round(macro_top10_recall, 2)
@@ -154,94 +215,10 @@ class DS_Task_ICD_Predict:
             "macro_top10_f1": np.round(macro_top10_f1, 2),
             "weighted_top10_precision": np.round(weighted_top10_precision, 2),
             "weighted_top10_recall": np.round(weighted_top10_recall, 2),
-            "weighted_top10_f1": np.round(weighted_top10_f1, 2)
+            "weighted_top10_f1": np.round(weighted_top10_f1, 2),
         }
 
     def train_sequence_classification_model(self) -> None:
-        # Calculate the lengths of the training and validation sets
-        train_ratio = 0.8
-        dataset_size = len(self.dataset)
-        train_size = int(dataset_size * train_ratio)
-        val_size = dataset_size - train_size
-
-        # Split the dataset into training and validation sets
-        train_dataset, val_dataset = random_split(self.dataset, [train_size, val_size])
-        logging.info(f"total samples: {len(train_dataset)+len(val_dataset)}")
-
-        model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_checkpoint, num_labels=len(self.dataset.mlb.classes_)
-        )
-
-        model.config.problem_type = "multi_label_classification"  # specify problem type
-        model.loss = BCEWithLogitsLoss()  # specify loss function for multi-label
-
-        training_args = TrainingArguments(
-            output_dir=self.config["logging_dir"],
-            num_train_epochs=self.epochs,
-            per_device_train_batch_size=self.batch_size,
-            logging_dir=self.config["logging_dir"] / Path("logs"),
-            evaluation_strategy="epoch",
-            save_total_limit=2,
-            save_strategy=IntervalStrategy.EPOCH,
-            fp16=True,
-            weight_decay=2e-5 * 0.1,
-            learning_rate=2e-5,
-            load_best_model_at_end=True,
-        )
-
-        class TrainingLossLoggingCallback(TrainerCallback):
-            def on_train_end(self, args, state, control, logs=None, **kwargs):
-                if (
-                    state.global_step > 0
-                    and state.global_step % args.logging_steps == 0
-                    and "loss" in state.log_history[-1]
-                ):
-                    logs["train_loss"] = np.round(state.log_history[-1]["loss"], 4)
-
-        class BestScoreLoggingCallback(TrainerCallback):
-            def __init__(self):
-                self.best_scores = {}
-
-            def on_log(
-                self, args, state, control, model, tokenizer, logs=None, **kwargs
-            ):
-                if logs is None:
-                    return
-
-                def log_best(keywords: List) -> None:
-                    # Generate the keys_to_include list based on the specified keywords
-                    keys_to_include = [
-                        k for k in logs.keys() if any(keyword in k for keyword in keywords)
-                    ]
-
-                    # Filter the logs dictionary to only include keys that are in the specified list
-                    filtered_logs = {k: v for k, v in logs.items() if k in keys_to_include}
-
-                    # Check if a new best score is achieved
-                    temp_dict = {}
-                    for key, value in filtered_logs.items():
-                        prefix = key.split("_")[1]
-                        if key not in self.best_scores or self.best_scores[key] < value:
-                            self.best_scores[key] = value
-                            temp_dict[f"eval/{prefix}_f1.best"] = value
-                            temp_dict[f"eval/{prefix}_precision.best"] = logs[f'eval_{prefix}_precision']
-                            temp_dict[f"eval/{prefix}_recall.best"] = logs[f'eval_{prefix}_recall']
-                            temp_dict[f"eval/{prefix}_accuracy.best"] = logs[f'eval_accuracy']
-                            temp_dict[f"eval/{prefix}_loss.best"] = logs[f'eval_loss']
-                            temp_dict[f"eval/{prefix}_epoch.best"] = logs['epoch']
-
-                    wandb.log(temp_dict)
-
-                # Define the keywords to include
-                log_best(["macro_f1", "weighted_f1", "macro_top10_f1", "weighted_top10_f1"])
-
-
-        wandb.init(
-            project="icd_former",
-            name=f"{self.model_checkpoint}",
-            mode="online",
-            tags=["baseline"],
-        )
         wandb.run.log_code(".")
         wandb.define_metric("eval/macro_f1", summary="max", step_metric="epoch")
         wandb.define_metric("eval/accuracy", summary="max", step_metric="epoch")
@@ -250,29 +227,60 @@ class DS_Task_ICD_Predict:
         wandb.define_metric("eval/macro_recall", summary="max", step_metric="epoch")
         wandb.define_metric("eval/weighted_f1", summary="max", step_metric="epoch")
         wandb.define_metric("eval/weighted_loss", summary="min", step_metric="epoch")
-        wandb.define_metric("eval/weighted_precision", summary="max", step_metric="epoch")
+        wandb.define_metric(
+            "eval/weighted_precision", summary="max", step_metric="epoch"
+        )
         wandb.define_metric("eval/weighted_recall", summary="max", step_metric="epoch")
-        wandb.define_metric("eval/macro_top10_precision", summary="max", step_metric="epoch")
-        wandb.define_metric("eval/macro_top10_recall", summary="max", step_metric="epoch")
+        wandb.define_metric(
+            "eval/macro_top10_precision", summary="max", step_metric="epoch"
+        )
+        wandb.define_metric(
+            "eval/macro_top10_recall", summary="max", step_metric="epoch"
+        )
         wandb.define_metric("eval/macro_top10_f1", summary="max", step_metric="epoch")
-        wandb.define_metric("eval/weighted_top10_precision", summary="max", step_metric="epoch")
-        wandb.define_metric("eval/weighted_top10_recall", summary="max", step_metric="epoch")
-        wandb.define_metric("eval/weighted_top10_f1", summary="max", step_metric="epoch")
+        wandb.define_metric(
+            "eval/weighted_top10_precision", summary="max", step_metric="epoch"
+        )
+        wandb.define_metric(
+            "eval/weighted_top10_recall", summary="max", step_metric="epoch"
+        )
+        wandb.define_metric(
+            "eval/weighted_top10_f1", summary="max", step_metric="epoch"
+        )
+
+        training_args = TrainingArguments(
+            output_dir=self.config["model_dir"],
+            num_train_epochs=self.epochs,
+            per_device_train_batch_size=self.batch_size,
+            logging_dir=self.config["model_dir"] / Path("logs"),
+            evaluation_strategy="epoch",
+            save_total_limit=2,
+            save_strategy=IntervalStrategy.EPOCH,
+            fp16=True,
+            weight_decay=2e-5 * 0.1,
+            learning_rate=2e-5,
+            load_best_model_at_end=True,
+            metric_for_best_model="loss",
+            greater_is_better=False,
+        )
+
+
+
 
         early_stopping_callback = EarlyStoppingCallback(
-            early_stopping_patience=3,  # Number of steps with no improvement after which training will be stopped
+            early_stopping_patience=5,  # Number of steps with no improvement after which training will be stopped
             early_stopping_threshold=0.0,  # Minimum change in the monitored metric to be considered as an improvement
         )
 
         trainer = Trainer(
-            model=model,
+            model=self.model,
             args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=val_dataset,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.val_dataset,
             compute_metrics=self.compute_metrics,
             callbacks=[
-                TrainingLossLoggingCallback,
-                BestScoreLoggingCallback,
+                train_helper.TrainingLossLoggingCallback,
+                train_helper.BestScoreLoggingCallback,
                 early_stopping_callback,
             ],
         )
@@ -281,10 +289,23 @@ class DS_Task_ICD_Predict:
 
         trainer.save_model(self.config["model_dir"] / Path("models"))
 
+        config = trainer.model.config
+        labels = [label for label in self.train_dataset[0]["label_codes"]]
+        config.id2label = {i: val for i, val in enumerate(labels)}
+        config.label2id = {val: i for i, val in enumerate(labels)}
+        config.to_json_file(str(self.config["model_dir"] / "models" / "config.json"))
+
 
 def main(config):
-    model_checkpoint = "bert-base-uncased"
-    ds_icd = DS_Task_ICD_Predict(config, model_checkpoint, epochs=150)
+    model_checkpoint = "LennartKeller/longformer-gottbert-base-8192-aw512"
+    config["model_dir"] = config["model_dir"] / Path(
+        model_checkpoint.replace("/", "_")
+        + "_"
+        + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+    )
+    config["model_dir"].mkdir(parents=True, exist_ok=True)
+
+    ds_icd = DS_Task_ICD_Predict(config, model_checkpoint, epochs=10)
     ds_icd.train_sequence_classification_model()
 
 

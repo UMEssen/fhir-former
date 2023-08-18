@@ -1,4 +1,4 @@
-import json
+# import json
 import logging
 import os
 
@@ -10,7 +10,8 @@ from transformers import (
     DataCollatorForLanguageModeling,
     EvalPrediction,
     TrainerCallback,
-    IntervalStrategy, EarlyStoppingCallback,
+    IntervalStrategy,
+    EarlyStoppingCallback,
 )
 from transformers import Trainer, TrainingArguments
 from transformers import AutoTokenizer, AutoModelForMaskedLM
@@ -24,12 +25,27 @@ os.environ["WANDB_LOG_MODEL"] = "end"
 class TrainingLossLoggingCallback(TrainerCallback):
     def on_train_end(self, args, state, control, logs=None, **kwargs):
         if (
-                state.global_step > 0
-                and state.global_step % args.logging_steps == 0
-                and "loss" in state.log_history[-1]
+            state.global_step > 0
+            and state.global_step % args.logging_steps == 0
+            and "loss" in state.log_history[-1]
         ):
             # logs["train_loss"] = np.round(state.log_history[-1]["loss"], 4)
             wandb.log({logs["train_loss"]: np.round(state.log_history[-1]["loss"], 4)})
+
+
+class DelayedEarlyStoppingCallback(TrainerCallback):
+    def __init__(self, delay_epochs):
+        super().__init__()
+        self.delay_epochs = delay_epochs
+        self.early_stopping_callback = EarlyStoppingCallback(
+            early_stopping_patience=3, early_stopping_threshold=0
+        )
+
+    def on_epoch_end(self, args, state, control, **kwargs):
+        if state.global_step > self.delay_epochs:
+            print("Early stopping callback kicking in...")
+            self.early_stopping_callback.on_epoch_end(args, state, control, **kwargs)
+
 
 class PerplexityLoggingCallback(TrainerCallback):
     def __init__(self, compute_metrics_fn):
@@ -145,11 +161,14 @@ class PretrainLongformer:
             name=f"{self.model_name.split('/')[-1]}_pretrain_{num_train_epochs}",
             mode="online",
             # mode="disabled",
+            # resume="r8x2bxrs",
+            entity="ship-ai-autopilot",
         )
         wandb.run.log_code(".")
 
         # Create the model
         model = AutoModelForMaskedLM.from_pretrained(self.model_name)
+        # model = AutoModelForMaskedLM.from_pretrained('/local/work/merengelke/ship_former/models/checkpoint-11466')
 
         raw_dataset = HFDataset.from_generator(self.data_generator_train)
         train_dataset = raw_dataset.map(
@@ -192,12 +211,14 @@ class PretrainLongformer:
             # report_to="none",
             evaluation_strategy="epoch",
             save_strategy=IntervalStrategy.EPOCH,
-            fp16=True,
+            fp16=False,
+            metric_for_best_model="loss",
+            greater_is_better=False,
         )
 
         early_stopping_callback = EarlyStoppingCallback(
-            early_stopping_patience=3,  # Number of steps with no improvement after which training will be stopped
-            early_stopping_threshold=0.0,  # Minimum change in the monitored metric to be considered as an improvement
+            early_stopping_patience=5,  # Number of steps with no improvement after which training will be stopped
+            early_stopping_threshold=0,  # Minimum change in the monitored metric to be considered as an improvement
         )
 
         # Create the Trainer
@@ -208,7 +229,7 @@ class PretrainLongformer:
             train_dataset=train_dataset,
             eval_dataset=val_dataset if val_dataset else None,
             # compute_metrics=self.compute_metrics,
-            callbacks=[TrainingLossLoggingCallback, early_stopping_callback],
+            callbacks=[TrainingLossLoggingCallback],
         )
 
         # Train the model
@@ -219,13 +240,13 @@ class PretrainLongformer:
 
 
 def main(config):
-    model_checkpoint = "bert-base-uncased"
+    model_checkpoint = "LennartKeller/longformer-gottbert-base-8192-aw512"
 
     pretrainer = PretrainLongformer(model_checkpoint, config)
     # Usage example
     pretrainer.pretrain(
         "/local/work/merengelke/ship_former/models",
-        num_train_epochs=150,
+        num_train_epochs=100,
     )
 
 

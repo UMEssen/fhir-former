@@ -6,11 +6,14 @@
 # Run live pipline
 is_live_prediction: False
 
+# Set pipline type
+task: None
+
 # filter times for training data
 start_datetime: '01-01-2021'
 end_datetime: '01-01-2022'
 
-# dir for G15
+# dir for G15+G13
 root_dir: "/local/work/merengelke/ship_former"
 # dir for SHIPGPU
 #root_dir: "/nvme/merengelke/ship_former_pre_train"
@@ -33,6 +36,7 @@ patient_params: {
 patient_constraints: {'_id': 'patient_id'}
 
 # Patient parents
+patient_parent_path: './data_raw/patient_parents.ftr'
 patient_parent_path_filtered: './data_filtered/patient_parents.ftr'
 patient_parent_params: {
   '_count': 5000,
@@ -106,6 +110,10 @@ medication_admin_params: {
   '_sort': '_lastUpdated'
 }
 
+# Observation (metrics)
+observation_path: './data_raw/observation.ftr'
+observation_path_filtered: './data_filtered/observation.ftr'
+
 # DownStream-Train Samples for ICD predictor
 pre_uq_pats_for_ds_task: './pre_uq_pats_for_ds_task.pkl'
 ds_icd_train_sample_path: './ds_icd_train_samples.json'
@@ -120,8 +128,6 @@ eval_accumulation_steps: 5
 wandb_project_name: 'ship_llm'
 
 # results
-results_dir: './results'
-logging_dir: './logs'
-model_dir: './models'
+model_dir: './model_dir'
 
 

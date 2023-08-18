@@ -1,8 +1,9 @@
 [//]: # (# icd)
 
-Repo for downstreaming task for predicting ICD-Root Codes from clinical data
+Repo Model-Pretraining and DS-Tasks
 
-Model: Tranformer based models (BERT, RoBERTa)
+Model: whaleloops/KEPTlongformer-PMM3 etc.
 Input: Patient-Data, Encounters, Procedures, Conditions
 Label: ICD-Root Codes
 
+etc...

@@ -1,16 +1,16 @@
 version: '2.3'
 
 services:
-  autopilot_predict:
+  ship_former:
     build:
       context: .
       dockerfile: "Dockerfile"
     user: $DOCKER_USER:$DOCKER_GROUP
-    cpus: 4
-    image: "merengelke/autopilot_predict"
+    cpus: 32
+    image: "merengelke/ship_former_torch"
     runtime: nvidia
     environment:
-      - NVIDIA_VISIBLE_DEVICES=1
+      - NVIDIA_VISIBLE_DEVICES=1,2,3,4
       - FHIR_USER=$FHIR_USER
       - FHIR_PASSWORD=$FHIR_PASSWORD
       - DOCKER_USER=$DOCKER_USER
@@ -21,15 +21,20 @@ services:
       - DICOM_WEB_URL_GEPACS=$DICOM_WEB_URL_GEPACS
       - DICOM_WEB_URL_EA=$DICOM_WEB_URL_EA
       - DICOM_WEB_URL_CHILI=$DICOM_WEB_URL_CHILI
+      - WANDB_API_KEY=$WANDB_API_KEY
+      - WANDB_DIR=/autopilot/wandb
+      - WANDB_CACHE_DIR=/autopilot/wandb
+      - WANDB_CONFIG_DIR=/autopilot/wandb
+      - WANDB_DATA_DIR=/autopilot/wandb
     volumes:
       - ./app:/autopilot/app
+      - ./wandb:/autopilot/wandb
       - /etc/passwd:/etc/passwd:ro
       - /etc/group:/etc/group:ro
-      - /nvme/shared/autopilot:/data
+      - /local/work/merengelke/autopilot:/data
     working_dir: /autopilot
     shm_size: '1gb'
 
 networks:
   default:
-    external:
-      name: parmar
+    name: "merengelke"

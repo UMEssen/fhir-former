@@ -8,7 +8,9 @@ import pandas as pd
 from pathlib import Path
 import pickle
 from concurrent.futures import ProcessPoolExecutor
-from app.data_preprocessing.generate_pre_train_samples import EncounterTokenBuilder as ETB
+from app.data_preprocessing.generate_pre_train_samples import (
+    EncounterTokenBuilder as ETB,
+)
 
 from tqdm import tqdm
 
@@ -272,7 +274,6 @@ class EncounterTokenBuilder:
                     }
                 )
 
-
             # todo run this if more resources are added to make sure the labels are valid
             # samples = pd.DataFrame(sample_list)
             # duplicate_patients = samples[
@@ -309,14 +310,18 @@ class EncounterTokenBuilder:
 
         results = list(results_iter)
         sample_list = [sample for sublist in results for sample in sublist]
-        patient_ids = list(set([sample['patient_id'] for sample in sample_list]))
+        patient_ids = list(set([sample["patient_id"] for sample in sample_list]))
 
         patient_ids_validation = pd.read_pickle(self.config["pre_uq_pats_for_ds_task"])
         patient_ids_train = [x for x in patient_ids if x not in patient_ids_validation]
 
-        print(f"Ratio of patients in train set: {len(patient_ids_train)/len(patient_ids)}")
-        if not 0.75 < len(patient_ids_train)/len(patient_ids) < 0.85:
-            raise ValueError("Ratio of patients in train/val set is not between 0.75 and 0.85")
+        print(
+            f"Ratio of patients in train set: {len(patient_ids_train)/len(patient_ids)}"
+        )
+        if not 0.75 < len(patient_ids_train) / len(patient_ids) < 0.85:
+            raise ValueError(
+                "Ratio of patients in train/val set is not between 0.75 and 0.85"
+            )
             # if it is less you can't really do anything
             # if it is more you can add more patients to the train set
 
@@ -332,10 +337,7 @@ class EncounterTokenBuilder:
 
 
 def main(config) -> None:
-    if (
-        not os.path.exists(config["ds_icd_train_sample_path"])
-        or config["reload_cache"]
-    ):
+    if not os.path.exists(config["ds_icd_train_sample_path"]) or config["reload_cache"]:
         enc_token_builder = EncounterTokenBuilder(config)
         enc_token_builder.build_encounter_token()
 

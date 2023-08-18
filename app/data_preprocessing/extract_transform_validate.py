@@ -1,6 +1,5 @@
 import os
 import pathlib
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +13,8 @@ from requests.adapters import Retry
 from tqdm import tqdm
 
 import logging
+from sqlalchemy import create_engine, text
+
 
 # REQUIRED PATHS
 SEARCH_URL = os.environ["SEARCH_URL"]
@@ -21,14 +22,17 @@ BASIC_AUTH = os.environ["BASIC_AUTH"]
 REFRESH_AUTH = os.environ["REFRESH_AUTH"]
 FHIR_USER = os.environ["FHIR_USER"]
 FHIR_PASSWORD = os.environ["FHIR_PASSWORD"]
+METRICS_USER = os.environ["METRICS_USER"]
+METRICS_PASSWORD = os.environ["METRICS_PASSWORD"]
+METRICS_HOSTNAME = os.environ["METRICS_HOSTNAME"]
+METRICS_PORT = os.environ["METRICS_PORT"]
+METRICS_DB = os.environ["METRICS_DB"]
 
-# # Authentication
-# auth = Ahoy(
-#     auth_method=None,
-#     token=FHIR_TOKEN,
-#     username=FHIR_USER,
-#     refresh_url=REFRESH_AUTH,
-# )
+
+engine = create_engine(
+    f"postgresql://{METRICS_USER}:{METRICS_PASSWORD}@{METRICS_HOSTNAME}:{METRICS_PORT}/{METRICS_DB}"
+)
+
 
 auth = Ahoy(
     auth_method="env",
@@ -36,6 +40,7 @@ auth = Ahoy(
     auth_url=BASIC_AUTH,
     refresh_url=REFRESH_AUTH,
 )
+
 
 with open("app/config/constants.yaml", "r") as stream:
     code_dict = yaml.safe_load(stream)
@@ -100,7 +105,7 @@ class FHIRExtractor:
             self.search = Pirate(
                 auth=auth,
                 base_url=SEARCH_URL,
-                num_processes=10,
+                num_processes=40,
                 cache_folder=self.config["bundle_cache_folder_path"],
                 retry_requests=Retry(
                     total=3,  # Retries for a total of three times
@@ -120,7 +125,7 @@ class FHIRExtractor:
             self.search = Pirate(
                 auth=auth,
                 base_url=SEARCH_URL,
-                num_processes=5,
+                num_processes=40,
                 retry_requests=Retry(
                     total=3,  # Retries for a total of three times
                     backoff_factor=0.5,
@@ -182,15 +187,32 @@ class FHIRExtractor:
         encs = pd.read_feather(self.config["encounter_path_filtered"])
         encs = encs.drop_duplicates(subset=["patient_id"], keep="first")
 
-        df = self.search.trade_rows_for_dataframe(
-            df=encs,
-            df_constraints=self.config["patient_constraints"],
-            resource_type="Patient",
-            request_params=self.config["patient_params"],
+        query_all = text(
+            """SELECT "birthDate", gender, id as patient_id, code as insurance_type, _json
+        From patient
+        Left OUTER JOIN patient_identifier_type_coding ON patient._id = patient_identifier_type_coding._resource
+        """
         )
-        print(len(df))
 
-        df.reset_index(drop=True, inplace=False).to_feather(self.config["patient_path"])
+        with engine.connect() as connection:
+            df_all = pd.read_sql_query(query_all, connection)
+
+        df_all["last_updated"] = [x["meta"]["lastUpdated"] for x in df_all["_json"]]
+
+        # Kill duplicates and keep the last updated
+        df_all["last_updated"] = pd.to_datetime(df_all["last_updated"])
+        df_all = df_all.sort_values(["patient_id", "last_updated"])
+        df_all = df_all.drop_duplicates(subset="patient_id", keep="last")
+
+        merged_df = pd.merge(df_all, encs, on="patient_id", how="inner")
+
+        merged_df["birthDate"] = [
+            x if x is None else x.lower for x in merged_df["birthDate"]
+        ]
+
+        merged_df.reset_index(drop=True, inplace=False).to_feather(
+            self.config["patient_path"]
+        )
 
     # Building Encounter DataFrame
     def build_encounter(self):
@@ -534,7 +556,6 @@ class FHIRExtractor:
 
     # Building Condition DataFrame
     def build_condition(self):
-        print("Change condittion date end to datetime.datetime.now().date()")
         df = self.search.sail_through_search_space_to_dataframe(
             resource_type="Condition",
             request_params=self.config["condition_params"],
@@ -846,6 +867,25 @@ class FHIRExtractor:
             self.config["patient_parent_path_filtered"]
         )
 
+    def build_observation(self):
+        query = text(
+            """SELECT observation_code_coding.display, value, unit,
+        lower("effectiveDateTime")::timestamp as effectiveDateTime,
+        replace(observation_subject.reference, 'Patient/', '') as patient_id,
+        replace(observation_encounter.reference, 'Encounter/', '') as encounter_id
+        FROM observation
+        JOIN observation_code_coding ON observation._id = observation_code_coding._resource
+        JOIN observation_subject ON observation._id = observation_subject._resource
+        JOIN observation_encounter ON observation._id = observation_encounter._resource
+        JOIN "observation_valueQuantity" ON observation._id = "observation_valueQuantity"._resource
+        """
+        )
+
+        with engine.connect() as connection:
+            df = pd.read_sql_query(query, connection)
+            df.to_feather(self.config["observation_path"])
+        exit()
+
 
 # Class FHIRExtractor
 class FHIRFilter:
@@ -927,11 +967,18 @@ class FHIRFilter:
         # Filter to keep only inpatient encounters (stationary clinic encounters)
         enc_filtered = enc_filtered[enc_filtered["v3-ActCode"] == "IMP"]
         # Take only 50 % of the encounters
-        valid_pats = enc_filtered[
-            enc_filtered["patient_id"].str.startswith(
-                tuple(map(str, [0, 1, 2, 3, 4, 5, 6, 7]))
-            )
-        ]["patient_id"]
+        if self.config["task"]:
+            valid_pats = enc_filtered[
+                enc_filtered["patient_id"].str.startswith(
+                    tuple(map(str, [8, 9, "a", "b", "c", "d", "e", "f"]))
+                )
+            ]["patient_id"]
+        else:
+            valid_pats = enc_filtered[
+                enc_filtered["patient_id"].str.startswith(
+                    tuple(map(str, [0, 1, 2, 3, 4, 5, 6, 7]))
+                )
+            ]["patient_id"]
         enc_filtered = enc_filtered[enc_filtered["patient_id"].isin(valid_pats)]
 
         enc_filtered.reset_index(drop=True).to_feather(
@@ -940,26 +987,33 @@ class FHIRFilter:
 
     def filter_patient(self):
         pat = pd.read_feather(self.config["patient_path"])
-        # Select the relevant columns and rename them
-        pat_filtered = pat[
-            ["id", "identifier_1_type_coding_0_code", "gender", "birthDate"]
-        ].copy()
-        pat_filtered.columns = ["patient_id", "insurance_type", "gender", "birthDate"]
 
-        # Remove rows with missing patient_id
-        pat_filtered.dropna(subset=["patient_id", "birthDate"], inplace=True)
-
-        # Translate GKV to gesetzlich and PKV to privat and unknown for other values
-        pat_filtered["insurance_type"] = (
-            pat_filtered["insurance_type"]
-            .map({"GKV": "gesetzlich", "PKV": "privat"})
-            .fillna("unknown")
+        # Insurance
+        query_all = text(
+            """select xp.id, xc2.code as "insurance_type_2"
+            from patient xp
+            join patient_identifier_type_coding xi on xp._id = xi._resource
+            join fhirql_codes xc on xi.system = xc.id and xc.code = 'http://fhir.de/CodeSystem/identifier-type-de-basis'
+            join fhirql_codes xc2 on xi.code = xc2.id;
+        """
         )
 
-        # Update gender values
-        pat_filtered.loc[
-            ~pat_filtered["gender"].isin(["male", "female"]), "gender"
-        ] = "male"
+        with engine.connect() as connection:
+            df_insurance = pd.read_sql_query(query_all, connection)
+
+        pat = pat.merge(df_insurance, left_on="patient_id", right_on="id", how="left")
+        pat.drop(columns=["insurance_type"], inplace=True)
+        pat.rename(columns={"insurance_type_2": "insurance_type"}, inplace=True)
+
+        # Get final df
+        pat_filtered = pat[["patient_id", "gender", "insurance_type", "birthDate"]]
+        pat_filtered["gender"] = [
+            "female" if x == 231 else "male" for x in pat_filtered["gender"]
+        ]
+        mapping_dict = {"PKV": "privat", "GKV": "gesetzlich"}
+        pat_filtered["insurance_type"] = (
+            pat_filtered["insurance_type"].map(mapping_dict).fillna("unbekannt")
+        )
 
         pat_filtered.reset_index(drop=True).to_feather(
             self.config["patient_path_filtered"]
@@ -975,7 +1029,7 @@ class FHIRFilter:
     def filter_by_meta_patients(df) -> pd.DataFrame:
         # filtering out patients that are not in the patient table
         pats = pd.read_feather(
-            "/local/work/merengelke/ship_former_pre_train/data_filtered/patient_parents.ftr"
+            "/local/work/merengelke/ship_former/data_filtered/patient_parents.ftr"
         )
         pats_list = pats["linked_patient_id"].tolist()
 

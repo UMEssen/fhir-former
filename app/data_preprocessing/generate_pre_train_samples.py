@@ -217,9 +217,10 @@ class EncounterTokenBuilder:
                 }
             )
             return sample_list
+
     @staticmethod
     def get_split_samples(sample_list, split_ratio=0.8):
-        patient_ids = list(set([sample['patient_id'] for sample in sample_list]))
+        patient_ids = list(set([sample["patient_id"] for sample in sample_list]))
         random.seed(42)  # Set a seed for reproducibility
         random.shuffle(patient_ids)
 
@@ -227,8 +228,12 @@ class EncounterTokenBuilder:
         train_patients = patient_ids[:split_index]
         ds_patients = patient_ids[split_index:]
 
-        pre_train_samples = [sample for sample in sample_list if sample['patient_id'] in train_patients]
-        ds_samples = [sample for sample in sample_list if sample['patient_id'] in ds_patients]
+        pre_train_samples = [
+            sample for sample in sample_list if sample["patient_id"] in train_patients
+        ]
+        ds_samples = [
+            sample for sample in sample_list if sample["patient_id"] in ds_patients
+        ]
         return pre_train_samples, ds_samples
 
     def build_encounter_token(self) -> None:
@@ -253,15 +258,13 @@ class EncounterTokenBuilder:
         results = list(results_iter)
         sample_list = [sample for sublist in results for sample in sublist]
 
-
-
         # Do 80/20 split so the evaluation task for the downstream task has never seen the patients
         # Split the sample list into train and validation sets
         # Get the list of patient_ids for the test samples
         pre_train_samples, ds_samples = self.get_split_samples(sample_list)
-        ds_patient_ids = list(set([sample['patient_id'] for sample in ds_samples]))
+        ds_patient_ids = list(set([sample["patient_id"] for sample in ds_samples]))
 
-        with open(self.config['pre_uq_pats_for_ds_task'], 'wb') as file:
+        with open(self.config["pre_uq_pats_for_ds_task"], "wb") as file:
             pickle.dump(ds_patient_ids, file)
 
         # Now do the classic 80/20 split for the train and validation sets on the ds_samples
