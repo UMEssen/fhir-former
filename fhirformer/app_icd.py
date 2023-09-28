@@ -1,18 +1,17 @@
 # imports
 import base64
+import json
+import random
 from pathlib import Path
 
-import streamlit as st
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-import json
-import numpy as np
-import random
-import pandas as pd
-import torch
-from ml.ds_icd_llm import PatientEncounterDataset as PatientEncounterDatasetICD
-from ml.ds_main_diag_llm import PatientEncounterDataset as PatientEncounterDatasetDRG
 import icd10
+import numpy as np
+import pandas as pd
+import streamlit as st
+import torch
 from annotated_text import annotated_text
+from ml.ds_icd_llm import PatientEncounterDataset as PatientEncounterDatasetICD
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Config
 st.set_page_config(
@@ -28,21 +27,30 @@ def load_data(file_path):
     with open(file_path, "rb") as f:
         return json.load(f)
 
+
 @st.cache_resource
 def load_model(model_path):
     return AutoModelForSequenceClassification.from_pretrained(model_path)
 
+
 @st.cache_data
 def load_tokenizer():
-    return AutoTokenizer.from_pretrained("LennartKeller/longformer-gottbert-base-8192-aw512")
+    return AutoTokenizer.from_pretrained(
+        "LennartKeller/longformer-gottbert-base-8192-aw512"
+    )
+
 
 @st.cache_data
 def get_patient_data(df_filtered, patient_id):
     return df_filtered[df_filtered["patient_id"] == patient_id]
 
+
 @st.cache_data
 def get_filtered_data(patient_data, selected_date):
-    return patient_data[patient_data['text'].str.contains(f"sample_date\t{selected_date}")]
+    return patient_data[
+        patient_data["text"].str.contains(f"sample_date\t{selected_date}")
+    ]
+
 
 # Load the data and model for icd prediction
 data = load_data("/local/work/merengelke/ship_former/ds_icd_test_samples.json")
@@ -71,7 +79,6 @@ with open(
     "/local/work/merengelke/main_diagnosis_classifier/icd_pred/samples.json", "rb"
 ) as f:
     drg_samples = json.load(f)
-
 
 
 model_drg_path = "/local/work/merengelke/ship_former/ds_main_diag/models/whaleloops_KEPTlongformer-PMM3_2023-08-17_08-57/models"
@@ -165,14 +172,13 @@ class ICDClassifier:
         # return predicted_class  # Use this if you want to return the predicted class index
 
 
-
 # Sidebar
 pages = {"drg": "Main Diagnosis Prediction"}
 page_order = ["drg"]
 
 
 with st.sidebar:
-    st.image(render_png(Path("app/.streamlit/FHIRFormer.png")))
+    st.image(render_png(Path("fhirformer/.streamlit/FHIRFormer.png")))
     st.write(
         "SHIPFormer, developed by SHIP-AI at the Institute"
         " for Artificial Intelligence in Medicine, is an advanced"
@@ -191,7 +197,7 @@ with st.sidebar:
     st.write("")
     st.write("")
 
-    st.image(render_png(Path("app/.streamlit/ship-ai.png")))
+    st.image(render_png(Path("fhirformer/.streamlit/ship-ai.png")))
 
 # Main page
 
@@ -226,22 +232,28 @@ left_column, right_column = st.columns(2)
 
 if "input_text" not in st.session_state:
     # samples only contain patients with more than 4 samples
-    x = pd.DataFrame([x['label'] for x in data])
+    x = pd.DataFrame([x["label"] for x in data])
     df = pd.DataFrame(data)
-    df['count'] = df.groupby(['patient_id', 'encounter_id'])['patient_id'].transform('count')
-    df_filtered = df[df['count'] > 4]
+    df["count"] = df.groupby(["patient_id", "encounter_id"])["patient_id"].transform(
+        "count"
+    )
+    df_filtered = df[df["count"] > 4]
     pats = df_filtered["patient_id"].unique()
     # take 10 random patients
     st.session_state.pats = random.sample(set(list(pats)), 10)
     st.session_state.pats.pop(-1)
-    st.session_state.pats = ['6a910c295c3cd7eaa8933c70fd17745959c2e1ee6bb9b4f98aa278f9d0fe1536'] + st.session_state.pats
+    st.session_state.pats = [
+        "6a910c295c3cd7eaa8933c70fd17745959c2e1ee6bb9b4f98aa278f9d0fe1536"
+    ] + st.session_state.pats
     # Filter the df_filtered DataFrame based on the random patient IDs using .isin()
-    filtered_data = df_filtered[df_filtered['patient_id'].isin(st.session_state.pats)]
+    filtered_data = df_filtered[df_filtered["patient_id"].isin(st.session_state.pats)]
     # Store the filtered data in session state
     st.session_state.pats_data = filtered_data
 
     # If random_samples doesn't already exist in session state, create it
-    st.session_state.input_text = st.session_state.pats_data[st.session_state.pats_data["patient_id"] == pats[0]]["text"]
+    st.session_state.input_text = st.session_state.pats_data[
+        st.session_state.pats_data["patient_id"] == pats[0]
+    ]["text"]
 
 if "patient_data_filtered" not in st.session_state:
     st.session_state.patient_data_filtered = None
@@ -265,22 +277,34 @@ with left_column:
         patient_data = get_patient_data(st.session_state.pats_data, patient_id)
 
         # extract date by pat data
-        dates = [pat.split('sample_date\t')[1].split('\n')[0] for pat in patient_data['text']]
+        dates = [
+            pat.split("sample_date\t")[1].split("\n")[0] for pat in patient_data["text"]
+        ]
         # dates = [pd.to_datetime(date) for date in dates]
 
         # add slider to select date
-        st.session_state.selected_date = st.select_slider('Select Date', options=dates)  # create a slider to select date
+        st.session_state.selected_date = st.select_slider(
+            "Select Date", options=dates
+        )  # create a slider to select date
 
         # Filter the data by selected date
-        st.session_state.patient_data_filtered = get_filtered_data(patient_data, st.session_state.selected_date)
+        st.session_state.patient_data_filtered = get_filtered_data(
+            patient_data, st.session_state.selected_date
+        )
 
         # Get the selected patient's data
-        st.session_state.input_text = st.session_state.patient_data_filtered["text"].iloc[0]
-        st.session_state.input_text = st.session_state.patient_data_filtered["text"].iloc[0].replace("\n", "  \n")
+        st.session_state.input_text = st.session_state.patient_data_filtered[
+            "text"
+        ].iloc[0]
+        st.session_state.input_text = (
+            st.session_state.patient_data_filtered["text"].iloc[0].replace("\n", "  \n")
+        )
         st.session_state.input_text = st.session_state.input_text.replace("\t", "  \t")
 
         st.text_area(
-            label="**Patient Information**", value=f"{st.session_state.input_text}", height=600
+            label="**Patient Information**",
+            value=f"{st.session_state.input_text}",
+            height=600,
         )
 
 # Populate the right column with the prediction result
@@ -342,14 +366,15 @@ with right_column:
                 )
 
             id_to_label = {idx: item["label"] for idx, item in enumerate(drg_samples)}
-            classifier = ICDClassifier(model_drg_path, "whaleloops/KEPTlongformer-PMM3", id_to_label)
+            classifier = ICDClassifier(
+                model_drg_path, "whaleloops/KEPTlongformer-PMM3", id_to_label
+            )
             st.session_state.input_text = st.session_state.combined_text
-
 
             # st.session_state.input_text = st.session_state.input_text.replace("\t", "  \t")
             predicted_icd = classifier.predict(st.session_state.combined_text)
 
             if predicted_icd:
                 icd = get_icd_description(predicted_icd)
-            exp = st.expander(label=f"**Predicted Main Diagnosis**", expanded=True)
+            exp = st.expander(label="**Predicted Main Diagnosis**", expanded=True)
             exp.write(icd)

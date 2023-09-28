@@ -1,0 +1,138 @@
+# Defining params for FHIR-Extraction
+
+# Set pipeline type
+task: None
+# filter times for training data
+
+start_datetime: '2018-01-01'
+end_datetime: '2023-01-01'
+run_id: "2018-2023-v1"
+
+debug: False
+
+root_dir: "/local/work/merengelke/fhir_former"
+
+# Enforce to reload fhir resources
+rerun_cache: False
+download_documents: False
+
+# Patient
+patient_params: {
+  '_count': 1000,
+  '_sort': '-date'
+}
+patient_constraints: {'_id': 'patient_id'}
+
+# Patient parents
+patient_parent_params: {
+  '_count': 5000,
+}
+patient_parent_constraints: {'link': 'patient_id'}
+
+# Encounter
+encounter_params: {
+  '_count': 1000,
+  '_sort': '-date'
+}
+encounter_constraints: {'subject': 'patient_id'}
+
+# BDP
+bdp_params: {
+  '_count': 1000,
+  '_sort': '-shipStorageEnd',
+  '_include': 'BiologicallyDerivedProduct:request'
+}
+
+# Observation
+obs_params: {
+  'code': 'zTHRA',
+  '_count': 500,
+  '_sort': '-date',
+  '_include': 'Observation:based-on'
+}
+
+# Procedure
+procedure_params: {
+  '_count': 1000,
+  '_sort': '-date'
+}
+procedure_constraints: {'subject': 'patient_id'}
+
+# Condition
+condition_params: {
+  '_count': 1000,
+  '_sort': '-recorded-date'
+}
+
+# Medication
+medication_params: {
+  '_count': 1000,
+  '_sort': '_lastUpdated'
+}
+medication_req_params: {
+  '_count': 1000,
+  '_sort': '_lastUpdated',
+#  'identifier': 'https://uk-essen.de/HIS/BD/Cato/MedicationRequest%7C'
+}
+medication_admin_params: {
+  '_count': 1000,
+  '_sort': '_lastUpdated'
+}
+
+# ServiceRequest
+service_request_params: {
+  '_count': 1000,
+  '_sort': '_lastUpdated'
+}
+
+eval_accumulation_steps: 5
+
+# folders to clear on each run
+folders_to_clear: ['']
+
+# Sampling
+# Main column is always a datetime column
+text_sampling_column_maps: {
+    "condition": {
+        "main_col": "condition_date",
+        "bracket_cols": ["icd_code", "icd_display", "icd_version"]
+    },
+    "procedure": {
+        "main_col": "start",
+        "bracket_cols": ["code", "display"]
+    },
+    "imaging_study": {
+        "main_col": "started",
+        "bracket_cols": ["number_series", "number_instances", "description"]
+    },
+    "biologically_derived_product": {
+        "main_col": "ausgabe_datetime",
+        "bracket_cols": ["output_to_einskurz", "display"]
+    },
+    "observation": {
+        "main_col": "effectivedatetime",
+        "bracket_cols": ["display", "value_quantity", "value_unit"]
+    },
+    "service_request": {
+        "main_col": "authored",
+        "bracket_cols": ["code_display", "category_display"]
+    },
+    "medication": {
+        "main_col": "datetime",
+        "bracket_cols": ["medication", "status"]
+    },
+    "encounter": {
+        "main_col": "start",
+        "bracket_cols": ['id','original_patient_id', 'kind', 'status',
+       'v3_act_code', 'v3_act_code_display', 'type_code', 'type_display',
+       'fachabteilungsschluessel_code', 'fachabteilungsschluessel',
+       'v3_participanttypecode_code', 'v3_participanttypecode_display',
+       'practitioner_id', 'end', 'aufnahmeanlass_code',
+       'aufnahmeanlass_display', 'discharge_text', 'discharge_place_code',
+       'discharge_place_display']
+    },
+}
+
+
+# Training
+load_from_file: False

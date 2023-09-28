@@ -5,4 +5,8 @@ data.json
 .idea
 .envrc
 .DS_Store
-helper
+.env
+__pycache__
+fhir_former.code-workspace
+tmp_nb.ipynb
+fhirformer/config/config_training.yaml

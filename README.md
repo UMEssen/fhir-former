@@ -1,9 +1,11 @@
-[//]: # (# icd)
+# FHIRFormer
 
-Repo Model-Pretraining and DS-Tasks
+## How to run
 
-Model: whaleloops/KEPTlongformer-PMM3 etc.
-Input: Patient-Data, Encounters, Procedures, Conditions
-Label: ICD-Root Codes
+```
+poetry install
+```
 
-etc...
+```
+poetry run fhirformer --task [pretrain|ds_icd|ds_image|ds_main_diag]
+```

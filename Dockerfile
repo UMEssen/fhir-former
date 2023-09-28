@@ -4,7 +4,7 @@ MAINTAINER merlin.engelke@uk-essen.de
 RUN apt update && \
     apt upgrade -y
 
-COPY app/requirements.txt .
+COPY fhirformer/requirements.txt .
 RUN python -m pip install -r requirements.txt
 RUN mkdir /autopilot
 RUN chmod a+rwx -R /autopilot
