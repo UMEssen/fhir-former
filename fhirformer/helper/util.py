@@ -25,7 +25,6 @@ def timed(func):
 
 
 def name_from_model(model_name: Union[str, Path]) -> Tuple[str, bool]:
-    print(model_name)
     if isinstance(model_name, Path):
         name = model_name.parent.name
         if not model_name.exists():
