@@ -15,6 +15,8 @@ from fhirformer.fhir.util import (
     store_df,
 )
 
+logger = logging.getLogger(__name__)
+
 
 # Class FHIRExtractor
 class FHIRFilter:
@@ -92,8 +94,8 @@ class FHIRFilter:
         #     ~pat_df["linked_patient_id"].isin(pretrain_pats), "linked_patient_id"
         # ].unique()
 
-        logging.info(len(pd.Series(pretrain_pats).unique()))
-        logging.info(len(pd.Series(downstream_pats).unique()))
+        logger.info(len(pd.Series(pretrain_pats).unique()))
+        logger.info(len(pd.Series(downstream_pats).unique()))
         with (self.config["data_dir"] / "pretrain_patient_ids.pkl").open("wb") as of:
             pickle.dump(pretrain_pats, of)
 

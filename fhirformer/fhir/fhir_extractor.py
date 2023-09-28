@@ -242,7 +242,7 @@ class FHIRExtractor:
 
             # Execute the query and append the resulting DataFrame to the list
             df = self.df_from_query(query, chunk_size=10000)
-            logging.info(
+            logger.info(
                 f"Extracted {len(df)} {resource_name}s from time frame {current_start} to {current_end}"
             )
             dfs.append(df)

@@ -4,6 +4,8 @@ import pandas as pd
 
 from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read, col_to_datetime
 
+logger = logging.getLogger(__name__)
+
 
 class FHIRValidator:
     def __init__(self, config):
@@ -42,7 +44,7 @@ class FHIRValidator:
             df["ausgabe_datetime"] = col_to_datetime(df.ausgabe_datetime)
             df_count = df.ausgabe_datetime.value_counts().sort_index()[:-1]
             if (df_count == 0).any():
-                logging.warning("BDP count for one or more imported days = 0")
+                logger.warning("BDP count for one or more imported days = 0")
 
         na_counts = df.isna().sum()
 
@@ -52,9 +54,9 @@ class FHIRValidator:
     @staticmethod
     def na_checker(field_name: str, na_counts: pd.Series, is_error: bool) -> None:
         if na_counts[field_name] and is_error:
-            logging.error(f"At least one {field_name} is zero")
+            logger.error(f"At least one {field_name} is zero")
             raise ValueError(f"At least one {field_name} is zero")
         elif na_counts[field_name]:
-            logging.warning(f"At least one {field_name} is zero")
+            logger.warning(f"At least one {field_name} is zero")
         else:
-            logging.info(f"Validation for {field_name} passed")
+            logger.info(f"Validation for {field_name} passed")
