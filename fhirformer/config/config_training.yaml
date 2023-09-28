@@ -10,10 +10,11 @@ run_id: "2018-2023-v1"
 
 debug: False
 
-root_dir: "/local/work/merengelke/fhir_former"
+root_dir: "/data"
 
 # Enforce to reload fhir resources
 rerun_cache: False
+skip_validation: True
 download_documents: False
 
 # Patient

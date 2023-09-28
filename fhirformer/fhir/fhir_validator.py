@@ -32,7 +32,9 @@ class FHIRValidator:
     def validate(self, resource: str):
         # TODO: Add check for unique IDs for each resource type
         resource = resource.lower()
-        if resource in self.resource_schemas:
+        if self.config["skip_validation"]:
+            pass
+        elif resource in self.resource_schemas:
             self.generic_validate(resource, self.resource_schemas[resource])
         else:
             raise NotImplementedError(f"Resource {resource} not supported")

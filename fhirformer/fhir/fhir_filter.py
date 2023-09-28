@@ -63,7 +63,7 @@ class FHIRFilter:
         return df
 
     def skip_filter(self, path: Path):
-        if self.config["rerun_cache"]:
+        if self.config["rerun_cache"] or not path.exists():
             return False
         else:
             return path.exists()

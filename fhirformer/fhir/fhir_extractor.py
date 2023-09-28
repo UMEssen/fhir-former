@@ -40,7 +40,7 @@ class FHIRExtractor:
         )
 
     def skip_build(self, path: Path):
-        if self.config["rerun_cache"]:
+        if self.config["rerun_cache"] or not path.exists():
             return False
         else:
             if path.exists():
