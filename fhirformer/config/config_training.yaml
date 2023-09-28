@@ -95,16 +95,20 @@ folders_to_clear: [""]
 # Main column is always a datetime column
 text_sampling_column_maps: {
     "condition": {
+        "drop_duplicates": ["patient_id", "condition_id"],
         "main_col": "condition_date",
         "bracket_cols": ["icd_code", "icd_display", "icd_version"]
     },
     "procedure": {
+        "drop_duplicates": ["patient_id", "procedure_id"],
         "main_col": "start",
         "bracket_cols": ["code", "display"]
     },
     "imaging_study": {
+        "drop_duplicates": ["patient_id", "imaging_study_id"],
         "main_col": "started",
-        "bracket_cols": ["number_series", "number_instances", "description"]
+        "bracket_cols": ["number_series", "number_instances", "description"],
+        "ds_image_bracket_cols": ["number_series", "number_instances", "description", "procedure_code"]
     },
     "biologically_derived_product": {
         "main_col": "ausgabe_datetime",
@@ -123,14 +127,10 @@ text_sampling_column_maps: {
         "bracket_cols": ["medication", "status"]
     },
     "encounter": {
+        "drop_duplicates": ["patient_id", "id"],
         "main_col": "start",
-        "bracket_cols": ["id","original_patient_id", "kind", "status",
-       "v3_act_code", "v3_act_code_display", "type_code", "type_display",
-       "fachabteilungsschluessel_code", "fachabteilungsschluessel",
-       "v3_participanttypecode_code", "v3_participanttypecode_display",
-       "practitioner_id", "end", "aufnahmeanlass_code",
-       "aufnahmeanlass_display", "discharge_text", "discharge_place_code",
-       "discharge_place_display"]
+        "bracket_cols": [
+          "id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_participanttypecode_code", "v3_participanttypecode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display", "discharge_text", "discharge_place_code",        "discharge_place_display"]
     },
     "episode_of_care": {
         "main_col": "start",
