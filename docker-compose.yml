@@ -1,40 +1,40 @@
-version: '2.3'
+version: '2.3' # nvidia-docker2 requires version 2.3 in order to be able to specify the container runtime
 
 services:
-  ship_former:
+  trainer:
     build:
       context: .
       dockerfile: "Dockerfile"
     user: $DOCKER_USER:$DOCKER_GROUP
-    cpus: 32
-    image: "merengelke/ship_former_torch"
+    image: "ship-ai/fhirformer"
     runtime: nvidia
+    shm_size: 32g
+    ulimits:
+      memlock: -1
+      stack: 67108864
     environment:
-      - NVIDIA_VISIBLE_DEVICES=1,2,3,4
-      - FHIR_USER=$FHIR_USER
-      - FHIR_PASSWORD=$FHIR_PASSWORD
-      - DOCKER_USER=$DOCKER_USER
-      - DOCKER_GROUP=$DOCKER_GROUP
-      - SEARCH_URL=$SEARCH_URL
-      - BASIC_AUTH=$BASIC_AUTH
-      - REFRESH_AUTH=$REFRESH_AUTH
-      - DICOM_WEB_URL_GEPACS=$DICOM_WEB_URL_GEPACS
-      - DICOM_WEB_URL_EA=$DICOM_WEB_URL_EA
-      - DICOM_WEB_URL_CHILI=$DICOM_WEB_URL_CHILI
+      - FHIR_USER
+      - FHIR_PASSWORD
+      - SEARCH_URL
+      - BASIC_AUTH
+      - BASIC_AUTH_UME
+      - REFRESH_AUTH
+      - METRICS_USER
+      - METRICS_PASSWORD
+      - METRICS_HOSTNAME
+      - METRICS_PORT
+      - METRICS_DB
       - WANDB_API_KEY=$WANDB_API_KEY
-      - WANDB_DIR=/autopilot/wandb
-      - WANDB_CACHE_DIR=/autopilot/wandb
-      - WANDB_CONFIG_DIR=/autopilot/wandb
-      - WANDB_DATA_DIR=/autopilot/wandb
+      - WANDB_DIR=/app/wandb
+      - WANDB_CACHE_DIR=/app/wandb
+      - WANDB_CONFIG_DIR=/app/wandb
+      - WANDB_DATA_DIR=/app/wandb
     volumes:
-      - ./fhirformer:/autopilot/fhirformer
-      - ./wandb:/autopilot/wandb
-      - /etc/passwd:/etc/passwd:ro
-      - /etc/group:/etc/group:ro
-      - /local/work/merengelke/autopilot:/data
-    working_dir: /autopilot
-    shm_size: '1gb'
+      - ./fhirformer:/app/fhirformer
+      - ./wandb:/app/wandb
+      - /raid/work/giubaldini/fhirformer:/data
+
 
 networks:
   default:
-    name: "merengelke"
+    name: "fhirformer"

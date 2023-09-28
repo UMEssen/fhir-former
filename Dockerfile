@@ -1,10 +1,18 @@
-FROM nvcr.io/nvidia/tensorflow:23.06-tf2-py3
-MAINTAINER merlin.engelke@uk-essen.de
+FROM python:3.9 as poetry2requirements
+COPY pyproject.toml poetry.lock /
+ENV POETRY_HOME=/etc/poetry
+RUN pip3 install poetry
+RUN python3 -m poetry export --without-hashes -f requirements.txt \
+    | grep -v "torch=" \
+    > /Requirements.txt
 
-RUN apt update && \
-    apt upgrade -y
 
-COPY fhirformer/requirements.txt .
-RUN python -m pip install -r requirements.txt
-RUN mkdir /autopilot
-RUN chmod a+rwx -R /autopilot
+FROM nvcr.io/nvidia/pytorch:23.08-py3
+
+# Install app dependencies
+COPY --from=poetry2requirements /Requirements.txt /tmp
+RUN pip3 install -U pip && \
+    pip3 install -r /tmp/Requirements.txt && \
+    rm /tmp/Requirements.txt
+
+WORKDIR /app
