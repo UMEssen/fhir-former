@@ -82,8 +82,8 @@ class FHIRFilter:
 
         print(f"len pre split {len(pat_df)}")
         # Take only 50 % of the patients
-        pretrain_pats = pat_df["linked_patient_id"].unique()[: int(len(pat_df) / 2)]
-        downstream_pats = pat_df["linked_patient_id"].unique()[int(len(pat_df) / 2) :]
+        pretrain_pats = pat_df["linked_patient_id"].unique()[: len(pat_df) // 2]
+        downstream_pats = pat_df["linked_patient_id"].unique()[len(pat_df) // 2 :]
 
         # pretrain_pats = pat_df[
         #     pat_df["linked_patient_id"].str.startswith(
