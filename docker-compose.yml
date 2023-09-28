@@ -27,7 +27,7 @@ services:
       - WANDB_CONFIG_DIR=/autopilot/wandb
       - WANDB_DATA_DIR=/autopilot/wandb
     volumes:
-      - ./app:/autopilot/app
+      - ./fhirformer:/autopilot/fhirformer
       - ./wandb:/autopilot/wandb
       - /etc/passwd:/etc/passwd:ro
       - /etc/group:/etc/group:ro

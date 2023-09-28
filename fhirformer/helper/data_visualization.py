@@ -1,7 +1,6 @@
+import matplotlib.pyplot as plt
 import pandas as pd
 import pytz
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 
 def plot_top_15(df, column, year):
@@ -21,7 +20,6 @@ def plot_side_by_side(df, years):
         x1 = top_15_icd_code.index
         y1 = top_15_icd_code.values
 
-        x2 = top_15_icd_code_root.index
         y2 = top_15_icd_code_root.values
 
         bar_width = 0.4
@@ -49,9 +47,9 @@ def check_icd_occurrence(config):
     conds_df = conds_df[~pd.isna(conds_df.icd_code_root)]
     conds_df["condition_date"] = pd.to_datetime(conds_df["condition_date"])
 
-    conds_df.reset_index(drop=True).to_feather("app/helper/conditions_dt.ftr")
+    conds_df.reset_index(drop=True).to_feather("fhirformer/helper/conditions_dt.ftr")
 
-    conds_df = pd.read_feather("app/helper/conditions_dt.ftr")
+    conds_df = pd.read_feather("fhirformer/helper/conditions_dt.ftr")
 
     conds_df["condition_year"] = conds_df["condition_date"].apply(
         lambda x: pd.to_datetime(x).year if not pd.isnull(x) else x
@@ -71,9 +69,9 @@ def check_icd_occurrence(config):
     print(conds_df["condition_date"].min())
     print(conds_df["condition_date"].max())
 
-    # conds_df.to_feather('app/helper/conditions.ftr')
+    # conds_df.to_feather('fhirformer/helper/conditions.ftr')
 
-    # conds_df = pd.read_feather('app/helper/conditions.ftr')
+    # conds_df = pd.read_feather('fhirformer/helper/conditions.ftr')
     print(conds_df.columns)
     print(conds_df.shape)
     print(len(conds_df))
@@ -84,7 +82,9 @@ def check_icd_occurrence(config):
         (conds_df["condition_date"] >= start_date)
         & (conds_df["condition_date"] <= end_date)
     ]
-    filtered_df.reset_index(drop=True).to_feather("app/helper/conditions_filtered.ftr")
+    filtered_df.reset_index(drop=True).to_feather(
+        "fhirformer/helper/conditions_filtered.ftr"
+    )
 
     # years = [2017, 2018, 2019, 2020, 2021, 2022]
     years = [2017]
