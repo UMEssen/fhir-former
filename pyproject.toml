@@ -21,7 +21,6 @@ sqlalchemy = "^2.0.20"
 pyyaml = "^6.0.1"
 python-dotenv = "^1.0.0"
 psycopg2-binary = "^2.9.7"
-ipykernel = "^6.25.2"
 direnv = "^2020.12.3"
 matplotlib = "^3.8.0"
 
@@ -30,6 +29,7 @@ pre-commit = "^2.14.0"
 flake8 = "^3.9.2"
 mypy = "^0.910"
 black = "^22.3.0"
+jupyter = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
