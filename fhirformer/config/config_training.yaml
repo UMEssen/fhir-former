@@ -137,7 +137,7 @@ text_sampling_column_maps: {
         "bracket_cols": []
     },
     "diagnostic_report": {
-        "main_col": "issued",
+        "main_col": "date",
         "bracket_cols": ["category", "category_display", "title"]
     }
 }

@@ -179,7 +179,7 @@ class FHIRFilter:
         output_name = name if output_name is None else output_name
         output_path = self.config["task_dir"] / f"{output_name}{OUTPUT_FORMAT}"
         if self.skip_filter(output_path):
-            return
+            return None
         df = check_and_read(self.config["data_dir"] / f"{output_name}{OUTPUT_FORMAT}")
         df = self.filter_by_meta_patients(df, is_patient_df=is_patient_df)
         if save:
@@ -198,7 +198,15 @@ class FHIRFilter:
         store_df(df, self.config["task_dir"] / f"medication{OUTPUT_FORMAT}")
 
     def filter_diagnostic_report(self):
-        self.basic_filtering("diagnostic_report")
+        if (df := self.basic_filtering("diagnostic_report", save=False)) is None:
+            return
+        df["date"] = df.apply(
+            lambda x: x["effective_datetime"]
+            if pd.isnull(x["issued"])
+            else x["issued"],
+            axis=1,
+        )
+        store_df(df, self.config["task_dir"] / f"diagnostic_report{OUTPUT_FORMAT}")
 
     def filter_patient_info(self):
         output_path = self.config["task_dir"] / f"patient{OUTPUT_FORMAT}"
