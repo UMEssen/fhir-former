@@ -162,10 +162,6 @@ class FHIRFilter:
             inplace=True,
         )
 
-        joined.to_pickle(
-            "/local/work/merengelke/fhir_former/testing_30d/pretrain/tmp.pkl"
-        )
-
         if not is_patient_df:
             joined.drop(
                 labels=["insurance_type", "birth_date", "sex"], axis=1, inplace=True
