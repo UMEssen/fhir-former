@@ -134,7 +134,9 @@ text_sampling_column_maps: {
     },
     "episode_of_care": {
         "main_col": "start",
-        "bracket_cols": []
+        "bracket_cols": [
+          "cert", "primary_case", "primary_year", "first_diagnosis_date", "bogen",
+        ]
     },
     "diagnostic_report": {
         "main_col": "date",
