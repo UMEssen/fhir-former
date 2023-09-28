@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "FHIRformer"
 readme = "README.md"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT License"
 description = "A transformer-based model for FHIR data"
 authors = ["Merlin Engelke <Merlin.Engelke@uk-essen.de>", "Giulia Baldini <Giulia.Baldini@uk-essen.de>"]
