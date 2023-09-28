@@ -20,10 +20,11 @@ from transformers import (
 import wandb
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
 
+logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
 
 
-class PretrainLongformer:
+class Pretrainer:
     def __init__(self, config, tokenizer=None):
         self.model_name = config["model_checkpoint"]
         self.config = config
@@ -85,7 +86,7 @@ class PretrainLongformer:
             yield {"text": text["text"]}
 
     def pretrain(self, num_train_epochs=2):
-        logging.info("Starting pre-training...")
+        logger.info("Starting pre-training...")
         wandb.init(
             tags=["baseline"],
             project=self.wandb_project_name,
@@ -118,7 +119,7 @@ class PretrainLongformer:
             )
         )
 
-        logging.info(f"Total samples: {len(train_dataset)+len(val_dataset)}")
+        logger.info(f"Total samples: {len(train_dataset)+len(val_dataset)}")
 
         # Define data collator
         data_collator = DataCollatorForLanguageModeling(
@@ -163,8 +164,8 @@ class PretrainLongformer:
 
 
 def main(config):
-    pretrainer = PretrainLongformer(config)
+    pretrainer = Pretrainer(config)
     # Usage example
     pretrainer.pretrain(
-        num_train_epochs=2,
+        num_train_epochs=1000,
     )

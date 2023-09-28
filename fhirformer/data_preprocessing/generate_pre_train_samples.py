@@ -9,6 +9,7 @@ from fhirformer.data_preprocessing.util import (
     get_data_info,
     get_patient_ids_lists,
     validate_resources,
+    skip_build,
 )
 
 
@@ -23,14 +24,12 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
             "observation",
             "service_request",
             "medication",
-            # episode_of_care
-            # diagnostic_report
+            "episode_of_care",
+            "diagnostic_report",
         ]
 
         super().__init__(config)
         self.config = config
-        # global store_list_global
-        # store_list_global = self.store_list_global
 
         self.filtered_column_map_txt_resources = get_column_map_txt_resources(
             config, resources_for_pre_training
@@ -112,4 +111,6 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
 
 
 def main(config) -> None:
+    if skip_build(config):
+        return
     PreTrainDatasetBuilder(config).prepare(split_ratio=0.8)

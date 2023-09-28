@@ -1,4 +1,3 @@
-import datetime
 import logging
 import os
 import shutil
@@ -26,6 +25,7 @@ def timed(func):
 
 
 def name_from_model(model_name: Union[str, Path]) -> Tuple[str, bool]:
+    print(model_name)
     if isinstance(model_name, Path):
         name = model_name.parent.name
         if not model_name.exists():
@@ -35,13 +35,8 @@ def name_from_model(model_name: Union[str, Path]) -> Tuple[str, bool]:
         name = Path(model_name).parent.name
         load = True
     else:
-        name = (
-            model_name.replace("/", "_")
-            + "_"
-            + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
-        )
+        name = model_name.replace("/", "_")
         load = False
-
     return name, load
 
 
@@ -60,4 +55,4 @@ def clear_process_data(config):
                 elif os.path.isdir(file_path):
                     shutil.rmtree(file_path)
             except Exception as e:
-                logging.info("Failed to delete %s. Reason: %s" % (file_path, e))
+                logger.info("Failed to delete %s. Reason: %s" % (file_path, e))

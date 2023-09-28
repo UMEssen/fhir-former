@@ -11,7 +11,10 @@ from fhirformer.data_preprocessing.util import (
     get_data_info,
     get_patient_ids_lists,
     validate_resources,
+    skip_build,
 )
+
+logger = logging.getLogger()
 
 
 class ICD10DatasetBuilder(EncounterDatasetBuilder):
@@ -149,7 +152,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
 
                 unique_labels = list(set([x.split(".")[0] for x in labels]))
                 if len(unique_labels) == 0:
-                    logging.error("No labels")
+                    logger.error("No labels")
                 sample_list.append(
                     {
                         "patient_id": str(pat),
@@ -163,4 +166,6 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
 
 
 def main(config) -> None:
+    if skip_build(config):
+        return
     ICD10DatasetBuilder(config).prepare(split_ratio=0.8)

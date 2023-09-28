@@ -8,6 +8,8 @@ from transformers import EarlyStoppingCallback, TrainerCallback
 
 import wandb
 
+logger = logging.getLogger(__name__)
+
 
 class BestScoreLoggingCallback(TrainerCallback):
     def __init__(self):
@@ -69,7 +71,7 @@ class DelayedEarlyStoppingCallback(TrainerCallback):
 
     def on_epoch_end(self, args, state, control, **kwargs):
         if state.global_step > self.delay_epochs:
-            logging.info("Early stopping callback kicking in...")
+            logger.info("Early stopping callback kicking in...")
             self.early_stopping_callback.on_epoch_end(args, state, control, **kwargs)
 
 
@@ -82,7 +84,7 @@ class PerplexityLoggingCallback(TrainerCallback):
         epoch = state.epoch
         if epoch > 0 and epoch % 5 == 0:
             perplexity = self.compute_metrics_fn(metrics)["eval_perplexity"]
-            logging.info(f"Perplexity at epoch {epoch}: {perplexity}")
+            logger.info(f"Perplexity at epoch {epoch}: {perplexity}")
 
 
 class PerplexityEvaluationCallback(TrainerCallback):
@@ -117,4 +119,4 @@ class PerplexityEvaluationCallback(TrainerCallback):
             predictions=all_logits, references=all_labels
         )
         # Log perplexity
-        logging.info(f"Perplexity: {perplexity}")
+        logger.info(f"Perplexity: {perplexity}")

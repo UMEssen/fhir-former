@@ -11,6 +11,7 @@ from transformers import (
     IntervalStrategy,
 )
 
+logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
 
 LOGGED_METRICS = [
@@ -34,7 +35,7 @@ class DownstreamTask:
         train_ratio: float = 0.8,
         prediction_cutoff: float = 0.5,
     ):
-        logging.info("Starting downstream task training ...")
+        logger.info("Starting downstream task training ...")
         self.config = config
         run = wandb.init(
             project=config["task"],
@@ -48,7 +49,7 @@ class DownstreamTask:
         self.epochs = epochs
 
         if self.config["load_from_file"]:
-            logging.info(f"Using model from checkpoint {config['model_checkpoint']}")
+            logger.info(f"Using model from checkpoint {config['model_checkpoint']}")
             run.tags = run.tags + ("pretrained",)
         self.prediction_cutoff = prediction_cutoff
         self.model_best_path = config["model_dir"] / "best"
@@ -65,7 +66,7 @@ class DownstreamTask:
         self.train_dataset, self.val_dataset = random_split(
             self.dataset, [train_size, val_size]
         )
-        logging.info(f"Total samples: {len(self.train_dataset)+len(self.val_dataset)}")
+        logger.info(f"Total samples: {len(self.train_dataset)+len(self.val_dataset)}")
 
         self.model = AutoModelForSequenceClassification.from_pretrained(
             self.model_checkpoint, num_labels=self.dataset.num_classes

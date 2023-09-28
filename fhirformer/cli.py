@@ -137,18 +137,16 @@ def run():
     config["model_name"], config["loaded_model"] = name_from_model(
         config["model_checkpoint"]
     )
-    config["model_name"] = config["model_checkpoint"]
 
     config["task_dir"] = config["root_dir"] / config["task"]
     config["model_dir"] = (
         config["task_dir"]
         / config["model_name"]
-        / datetime.now().strftime("%Y_%m_%d:%H_%M")
+        / datetime.now().strftime("%Y%m%d_%H_%M")
     )
-    if not config["model_dir"].exists():
-        config["model_dir"].mkdir(parents=True, exist_ok=True)
+    config["model_dir"].mkdir(parents=True, exist_ok=True)
 
-    logging.info(config["task_dir"])
+    logger.info(config["task_dir"])
 
     build_cache(config)
 

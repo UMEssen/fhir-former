@@ -9,9 +9,11 @@ from fhirformer.data_preprocessing.util import (
     get_data_info,
     get_patient_ids_lists,
     get_valid_labels,
-    is_skip_build,
+    skip_build,
     validate_resources,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ImageDatasetBuilder(EncounterDatasetBuilder):
@@ -130,8 +132,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
 
 
 def main(config):
-    if is_skip_build(config):
-        logging.info("Skipping samling ...")
+    if skip_build(config):
         return
 
     config["valid_procedure_codes"] = get_valid_labels(

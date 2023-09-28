@@ -6,6 +6,7 @@ from fhirformer.data_preprocessing.util import (
     get_data_info,
     get_patient_ids_lists,
     validate_resources,
+    skip_build,
 )
 
 
@@ -128,4 +129,6 @@ class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
 
 
 def main(config) -> None:
+    if skip_build(config):
+        return
     ICD10MainDatasetBuilder(config).prepare(split_ratio=0.8)

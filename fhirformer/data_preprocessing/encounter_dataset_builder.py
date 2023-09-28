@@ -11,6 +11,8 @@ from tqdm import tqdm
 
 from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read
 
+logger = logging.getLogger(__name__)
+
 
 def make_timezone_aware(value, default_timezone="UTC"):
     if isinstance(value, pd.Series):
@@ -223,7 +225,7 @@ class EncounterDatasetBuilder:
                     df = df[~df.category_display.isin(cats_to_drop)]
 
             if self.config["task"] == "ds_main_icd":
-                logging.warning(
+                logger.warning(
                     "You need to add the column that identifies the Main DRG here"
                 )
 
@@ -244,7 +246,7 @@ class EncounterDatasetBuilder:
             else [(0, len(self.patient_ids))]
         )
 
-        logging.info("Running patient data split")
+        logger.info("Running patient data split")
         for start_idx, end_idx in tqdm(splits, desc="Processing patient data splits"):
             fraction_patient_ids = self.patient_ids[start_idx:end_idx]
             fraction_pat_df = pat_df[pat_df["patient_id"].isin(fraction_patient_ids)]
@@ -343,7 +345,7 @@ class EncounterDatasetBuilder:
                     not pd.api.types.is_datetime64_any_dtype(filtered_df[main_col])
                     or filtered_df[main_col].isna().any()
                 ):
-                    logging.error(
+                    logger.error(
                         f"date column is not datetime type: {filtered_df[main_col]}"
                     )
                     filtered_df = filtered_df[~filtered_df[main_col].isna()]
@@ -491,7 +493,7 @@ class EncounterDatasetBuilder:
         if all_samples_int == 0:
             raise ValueError("No samples generated. Please check your data.")
         else:
-            logging.info(f"Generated {all_samples_int} samples.")
+            logger.info(f"Generated {all_samples_int} samples.")
 
         # Save the training samples
         with open(self.config["task_dir"] / "train.json", "w") as outfile:
