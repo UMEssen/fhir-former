@@ -746,7 +746,7 @@ class FHIRExtractor:
             refresh_url=os.environ["REFRESH_AUTH"],
         )
         failed = []
-        for row_dict in df.to_dict(orient="records"):
+        for row_dict in tqdm(df.to_dict(orient="records"), total=len(df)):
             txt = None
             category = next(
                 iter(c for c in row_dict["category_display"] or [] if " " not in c),
