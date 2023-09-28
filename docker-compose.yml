@@ -25,13 +25,13 @@ services:
       - METRICS_PORT
       - METRICS_DB
       - WANDB_API_KEY=$WANDB_API_KEY
-      - WANDB_DIR=/app/wandb
-      - WANDB_CACHE_DIR=/app/wandb
-      - WANDB_CONFIG_DIR=/app/wandb
-      - WANDB_DATA_DIR=/app/wandb
+      - WANDB_DIR=/wandb
+      - WANDB_CACHE_DIR=/wandb
+      - WANDB_CONFIG_DIR=/wandb
+      - WANDB_DATA_DIR=/wandb
     volumes:
-      - ./fhirformer:/app/fhirformer
-      - ./wandb:/app/wandb
+      - .:/app
+      - /raid/work/giubaldini/fhirformer/wandb:/wandb
       - /raid/work/giubaldini/fhirformer:/data
 
 

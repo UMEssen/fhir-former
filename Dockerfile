@@ -16,3 +16,6 @@ RUN pip3 install -U pip && \
     rm /tmp/Requirements.txt
 
 WORKDIR /app
+
+ENV TRANSFORMERS_CACHE=/tmp/.cache/transformers
+ENV HF_DATASETS_CACHE=/tmp/.cache/huggingface/datasets
