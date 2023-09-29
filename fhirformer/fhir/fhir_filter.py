@@ -14,6 +14,7 @@ from fhirformer.fhir.util import (
     reduce_cardinality,
     store_df,
 )
+from fhirformer.data_preprocessing.constants import TUMOR_TYPE_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -352,67 +353,24 @@ class FHIRFilter:
         output_path = self.config["task_dir"] / f"episode_of_care{OUTPUT_FORMAT}"
         if (df_eoc := self.basic_filtering("episode_of_care", save=False)) is None:
             return
-
-        valid_identifiers = [
-            "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/Primärfalljahr",
-            "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/Primärfall",
-            "http://uk-koeln.de/fhir/StructureDefinition/Extension/nNGM/Erstdiagnose",
-            "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/TumorIdentifier",
-            "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/TumorIdentifier/Bogen",
-        ]
-
-        df_eoc["json_extension"] = df_eoc["json_extension"].apply(
-            lambda x: x[0] if len(x) else None
-        )
-        df_eoc["json_extension"] = df_eoc["json_extension"].apply(
-            lambda x: x if isinstance(x, dict) else None
-        )
-        # drop all rows where json_extension is None
-        df_eoc.dropna(subset=["json_extension"], inplace=True)
-
-        # Step 2: Unpack json_extension and validate against 'valid_identifiers'
-        def unpack_and_validate(row):
-            extensions = row["json_extension"].get("extension", [])
-            if extensions is None:  # Add this check
-                return {}
-            valid_data = {}
-            for ext in extensions:
-                url = ext.get("url")
-                if url in valid_identifiers:
-                    value_key = [key for key in ext.keys() if key.startswith("value")][
-                        0
-                    ]
-                    valid_data[url] = ext[value_key]
-            return valid_data
-
-        # Apply the function to each row and create a new DataFrame with unpacked columns
-        df_eoc["valid_data"] = df_eoc.apply(unpack_and_validate, axis=1)
-
-        # Step 3: Create new columns based on 'valid_data'
-        for identifier in valid_identifiers:
-            column_name = identifier.split("/")[-1]  # Extract the last part after '/'
-            df_eoc[column_name] = df_eoc["valid_data"].apply(
-                lambda x: x.get(identifier, None)
-            )
-
-        # Optionally, drop the 'valid_data' and 'json_extension' columns as they are not needed anymore
-        df_eoc.drop(columns=["valid_data", "json_extension"], inplace=True)
+        df_eoc["treatment_program"] = df_eoc["treatment_program"].map(TUMOR_TYPE_MAP)
         store_df(df_eoc, output_path)
 
     def filter_service_request_pyrate(self):
         output_path = self.config["task_dir"] / f"service_request{OUTPUT_FORMAT}"
         if (df := self.basic_filtering("service_request", save=False)) is None:
             return
-        df["status"] = reduce_cardinality(df["status"], set_to_none=True)
-        df["fhirql_read_codes"] = reduce_cardinality(
-            df["fhirql_read_codes"], set_to_none=True
-        )
-        df["code"] = reduce_cardinality(df["code"], set_to_none=True)
-        df["code_display"] = reduce_cardinality(df["code_display"], set_to_none=True)
-        df["category_code"] = reduce_cardinality(df["category_code"], set_to_none=True)
-        df["category_display"] = reduce_cardinality(
-            df["category_display"], set_to_none=True
-        )
+
+        for col in [
+            "status",
+            "intent",
+            "priority",
+            "code",
+            "code_display",
+            "category_code",
+            "category_display",
+        ]:
+            df[col] = reduce_cardinality(df[col], set_to_none=True)
 
         df = df[df["status"].isin(["active", "completed", "draft", "unknown"])]
         df.dropna(subset=["patient_id"], inplace=True)
