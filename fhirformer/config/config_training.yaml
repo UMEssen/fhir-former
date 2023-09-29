@@ -130,7 +130,7 @@ text_sampling_column_maps: {
         "drop_duplicates": ["patient_id", "id"],
         "main_col": "start",
         "bracket_cols": [
-          "id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_participanttypecode_code", "v3_participanttypecode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display", "discharge_text", "discharge_place_code",        "discharge_place_display"]
+          "id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_participanttypecode_code", "v3_participanttypecode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display", "discharge_text", "discharge_place_code", "discharge_place_display"]
     },
     "episode_of_care": {
         "main_col": "start",
@@ -140,7 +140,7 @@ text_sampling_column_maps: {
     },
     "diagnostic_report": {
         "main_col": "date",
-        "bracket_cols": ["category", "category_display", "title"]
+        "bracket_cols": ["category_display", "title"]
     }
 }
 
