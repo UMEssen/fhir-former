@@ -372,6 +372,18 @@ class FHIRFilter:
         ]:
             df[col] = reduce_cardinality(df[col], set_to_none=True)
 
+        # Moved the dropping of categories to here
+        # TODO: Why is this needed? We can also make it depend on the task
+        # cats_to_drop = [
+        #     x
+        #     for x in df.category_display.dropna().unique()
+        #     if "labor" in x.lower()
+        #     or "Imaging" in x
+        #     or "radio" in x.lower()
+        #     or "Röntgen" in x
+        # ]
+        # df = df[~df.category_display.isin(cats_to_drop)]
+
         df = df[df["status"].isin(["active", "completed", "draft", "unknown"])]
         df.dropna(subset=["patient_id"], inplace=True)
 
