@@ -799,7 +799,7 @@ class FHIRExtractor:
             jsonb_path_query(eoc.extension, '$ ? (@.url == "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/Primärfall").valueBoolean') as primary_case,
             jsonb_path_query(eoc.extension, '$ ? (@.url == "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/Primärfalljahr").valueString') as primary_year,
             jsonb_path_query(eoc.extension, '$ ? (@.url == "http://uk-koeln.de/fhir/StructureDefinition/Extension/nNGM/Erstdiagnose").valueDateTime') as first_diagnosis_date,
-            jsonb_path_query(eoc.extension, '$.** ? (@.url == "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/TumorIdentifier/Bogen").valueString') as bogen,
+            jsonb_path_query(eoc.extension, '$.** ? (@.url == "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/TumorIdentifier/Bogen").valueString') as treatment_program,
             replace(eoc_pat.reference, 'Patient/', '') as patient_id,
             lower(start) as start,
             upper("end") as end
