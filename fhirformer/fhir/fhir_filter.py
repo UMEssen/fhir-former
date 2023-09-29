@@ -198,11 +198,13 @@ class FHIRFilter:
         if (df := self.basic_filtering("diagnostic_report", save=False)) is None:
             return
         df["date"] = df.apply(
-            lambda x: x["effective_datetime"]
-            if pd.isnull(x["issued"])
-            else x["issued"],
+            lambda x: x["issued"]
+            if pd.isnull(x["effective_datetime"])
+            else x["effective_datetime"],
             axis=1,
         )
+        for col in ["category", "category_display", "title"]:
+            df[col] = reduce_cardinality(df[col], set_to_none=False)
         store_df(df, self.config["task_dir"] / f"diagnostic_report{OUTPUT_FORMAT}")
 
     def filter_patient_info(self):
