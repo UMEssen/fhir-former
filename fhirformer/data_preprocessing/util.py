@@ -1,6 +1,8 @@
 import logging
 
 from fhirformer.fhir.util import check_and_read
+from fhirformer.data_preprocessing.data_store import DataStore
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ def validate_resources(resources, config):
             )
 
 
-def get_data_info(pats_int, store_list_global):
+def print_data_info(pats_int, store_list_global):
     logger.info(f"Overall patients to process {pats_int}")
     logger.info(f"{pats_int} are divided into {len(store_list_global)} lists")
     logger.info(f"Split to patient ratio {pats_int/len(store_list_global)}")
@@ -36,10 +38,10 @@ def get_column_map_txt_resources(config, resources_for_pre_training):
     }
 
 
-def get_patient_ids_lists(store_list_global):
+def get_patient_ids_lists(store_list: List["DataStore"]):
     return [
         store_global.patient_df["patient_id"].unique().tolist()
-        for store_global in store_list_global
+        for store_global in store_list
     ]
 
 

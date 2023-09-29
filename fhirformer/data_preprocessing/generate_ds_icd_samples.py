@@ -7,10 +7,6 @@ from fhirformer.data_preprocessing.encounter_dataset_builder import (
 )
 
 from fhirformer.data_preprocessing.util import (
-    get_column_map_txt_resources,
-    get_data_info,
-    get_patient_ids_lists,
-    validate_resources,
     skip_build,
 )
 
@@ -19,8 +15,9 @@ logger = logging.getLogger()
 
 class ICD10DatasetBuilder(EncounterDatasetBuilder):
     def __init__(self, config):
-        # Here you can simply decide which resources you want to use for the pre-training
-        resources_for_pre_training = [
+        super().__init__(config)
+        # Here you can simply decide which resources you want to use
+        self.resources_for_task = [
             "procedure",
             "condition",
             "imaging_study",
@@ -28,36 +25,14 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
             "observation",
             "service_request",
             "medication",
-            # episode_of_care
-            # diagnostic_report
+            "episode_of_care",
+            "diagnostic_report",
         ]
-
-        super().__init__(config)
-        self.config = config
-
-        self.filtered_column_map_txt_resources = get_column_map_txt_resources(
-            config, resources_for_pre_training
-        )
-
-        # this has proven to be the fastest way to process patients so far
         global store_list_global
-        store_list_global = self.get_source_data(
-            split_data=True,
-            n=2,
-        )
+        store_list_global = self.get_source_data(num_splits=2)
+        self.set_up(store_list_global)
 
-        # pass the fucking patient ids in a list each
-        self.patient_ids_lists = get_patient_ids_lists(store_list_global)
-
-        # get some info
-        pats_int = sum([len(x) for x in self.patient_ids_lists])
-        get_data_info(pats_int, store_list_global)
-        self.index = None
-
-        # filter column_maps by resources_with_date_column
-        validate_resources(resources_for_pre_training, self.config)
-
-    def process_patient(self, pat):
+    def process_patient(self, patient_id):
         """
         Process a single patient
         Restrictions:
@@ -73,8 +48,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
             - Step size is one day
 
         """
-        store = store_list_global
-        pat_data = store.filter_patient(patient_id=pat)
+        pat_data = store_list_global[self.index].filter_patient(patient_id=patient_id)
 
         sample_list = []
         if len(pat_data.enc) == 0 or len(pat_data.con) == 0:
@@ -86,7 +60,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
 
         for _, enc in pat_data.enc.iterrows():
             resources_during_enc = pat_data.filter_patient(
-                patient_id=pat,
+                patient_id=patient_id,
                 start_filter_date=enc["start"],
                 end_filter_date=enc["end"],
             )
@@ -102,7 +76,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                 enc.start + pd.Timedelta(days=1), enc.end - pd.Timedelta(days=1)
             ):
                 resources_during_sample = pat_data.filter_patient(
-                    patient_id=pat,
+                    patient_id=patient_id,
                     start_filter_date=enc.start,
                     end_filter_date=date,
                 )
@@ -111,7 +85,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     continue
 
                 con_labels_df = pat_data.filter_patient(
-                    patient_id=pat,
+                    patient_id=patient_id,
                     start_filter_date=date,
                     end_filter_date=enc.end,
                     target_resource="condition",
@@ -155,7 +129,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     logger.error("No labels")
                 sample_list.append(
                     {
-                        "patient_id": str(pat),
+                        "patient_id": str(patient_id),
                         "encounter_id": str(enc["encounter_id"]),
                         "text": text,
                         "label": list(set([x.split(".")[0] for x in labels])),

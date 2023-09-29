@@ -2,7 +2,6 @@ import json
 import logging
 import random
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
@@ -10,58 +9,17 @@ import pandas as pd
 from tqdm import tqdm
 
 from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read
+from fhirformer.data_preprocessing.util import (
+    validate_resources,
+    get_column_map_txt_resources,
+    print_data_info,
+    get_patient_ids_lists,
+)
+from fhirformer.data_preprocessing.data_store import DataStore
 
 logger = logging.getLogger(__name__)
 
 
-def make_timezone_aware(value, default_timezone="UTC"):
-    if isinstance(value, pd.Series):
-        # Convert to datetime Series and ensure it's timezone-aware
-        datetime_series = pd.to_datetime(value, utc=True).dt.tz_convert(
-            default_timezone
-        )
-        return datetime_series
-    elif isinstance(value, pd.Timestamp):
-        # Check if the Timestamp is timezone-aware‚‚
-        if not value.tz:
-            return value.tz_localize(default_timezone)
-        return value
-    elif isinstance(value, str):
-        timestamp = pd.to_datetime(value)
-        if not timestamp.tz:
-            return timestamp.tz_localize(default_timezone)
-        return timestamp
-    else:
-        raise ValueError(
-            f"Unsupported type {type(value)}. Expecting a pd.Series, pd.Timestamp, or str."
-        )
-
-
-def select_resources(
-    resource_df: pd.DataFrame,
-    column: str,
-    patient_id: str,
-    start_filter_date=None,
-    end_filter_date=None,
-):
-    if len(resource_df) == 0:
-        return resource_df
-
-    condition = resource_df.patient_id == patient_id
-    resource_tz_column = make_timezone_aware(resource_df[column])
-
-    if start_filter_date:
-        start_filter_date = make_timezone_aware(start_filter_date)
-        condition &= resource_tz_column >= start_filter_date
-
-    if end_filter_date:
-        end_filter_date = make_timezone_aware(end_filter_date)
-        condition &= resource_tz_column <= end_filter_date
-
-    return resource_df.loc[condition]
-
-
-@staticmethod
 def calculate_splits(total_patients, n):
     split_size = total_patients // n
     start_idx = 0
@@ -76,81 +34,32 @@ def calculate_splits(total_patients, n):
     return splits
 
 
-@dataclass
-class DataStore:
-    patient_df: pd.DataFrame
-    resources: Dict[str, pd.DataFrame]
-    date_columns: Dict[str, str]
-
-    def filter_patient(
-        self,
-        patient_id: str,
-        start_filter_date=None,
-        end_filter_date=None,
-        target_resource=None,
-    ):
-        filtered_patient = self.patient_df[self.patient_df.patient_id == patient_id]
-
-        if target_resource:
-            if target_resource not in self.resources:
-                raise ValueError(
-                    f"Resource {target_resource} not found in available resources."
-                )
-
-            filtered_resources = {
-                target_resource: select_resources(
-                    resource_df=self.resources[target_resource],
-                    column=self.date_columns[target_resource],
-                    patient_id=patient_id,
-                    start_filter_date=start_filter_date,
-                    end_filter_date=end_filter_date,
-                )
-            }
-        else:
-            filtered_resources = {
-                resource_name: select_resources(
-                    resource_df=resource_df,
-                    column=self.date_columns[resource_name],
-                    patient_id=patient_id,
-                    start_filter_date=start_filter_date,
-                    end_filter_date=end_filter_date,
-                )
-                for resource_name, resource_df in self.resources.items()
-            }
-
-        return DataStore(
-            patient_df=filtered_patient,
-            resources=filtered_resources,
-            date_columns=self.date_columns,
-        )
-
-
 class EncounterDatasetBuilder:
     def __init__(self, config):
         random.seed(42)
         self.config = config
+        self.index = None
+        self.patient_ids_lists = []
+        self.patient_ids = []
+        self.resources_for_task = None
+        self.filtered_text_sampling_column_maps = None
 
-        # Somehow this is super low wtf
-        # self.filtered_column_map_txt_resources = get_column_map_txt_resources(
-        #     config, resources_for_task
-        # )
+    def set_up(self, store_list: List[DataStore]) -> None:
+        assert (
+            self.resources_for_task is not None
+        ), "self.resources_for_task must be set by the inheriting class"
 
-        # # this has proven to be the fastest way to process patients so far
-        # self.store_list_global = self.get_source_data(
-        #     split_data=True,
-        #     n=2,
-        # )
+        # filter column_maps by resources_with_date_column
+        validate_resources(self.resources_for_task, self.config)
 
-        # # pass the fucking patient ids in a list each
-        # self.patient_ids_lists = get_patient_ids_lists(self.store_list_global)
+        self.filtered_text_sampling_column_maps = get_column_map_txt_resources(
+            self.config, self.resources_for_task
+        )
 
-        # # get some info
-        # pats_int = sum([len(x) for x in self.patient_ids_lists])
-        # get_data_info(pats_int, self.store_list_global)
-        # self.index = None
-
-        # # filter column_maps by resources_with_date_column
-        # validate_resources(resources_for_task, self.config)
+        self.patient_ids_lists = get_patient_ids_lists(store_list)
+        # get some info
+        pats_int = sum([len(x) for x in self.patient_ids_lists])
+        print_data_info(pats_int, store_list)
 
     def _process_split(
         self,
@@ -177,72 +86,54 @@ class EncounterDatasetBuilder:
 
     def get_source_data(
         self,
-        split_data: bool = False,
-        n: int = 1,
-    ) -> List["DataStore"]:
+        num_splits: int = 1,
+    ) -> List[DataStore]:
         data_stores = []
         df_resources = {}
 
         # Read all resources first
-        for resource, value in self.config["text_sampling_column_maps"].items():
-            columns_list = []
-            for _, v2 in value.items():
-                if isinstance(v2, list):
-                    columns_list.extend(v2)
-                else:
-                    columns_list.append(v2)
+        for resource, resource_dictionary in self.config[
+            "text_sampling_column_maps"
+        ].items():
+            if self.config["task"] + "_bracket_cols" in resource_dictionary:
+                columns_list = resource_dictionary[
+                    self.config["task"] + "_bracket_cols"
+                ]
+            else:
+                columns_list = resource_dictionary["bracket_cols"]
             columns_list.append("patient_id")
+            columns_list.append(resource_dictionary["main_col"])
+            logger.info(f"Reading and processing {resource}...")
 
             df = check_and_read(self.config["task_dir"] / f"{resource}{OUTPUT_FORMAT}")
 
-            # Do the data post-processing here
-            if self.config["task"] == "ds_image" or self.config["task"] == "pretrain":
-                if resource == "condition":
-                    df.drop_duplicates(
-                        subset=["patient_id", "condition_id"], inplace=True
-                    )
-                elif resource == "imaging_study":
-                    df.drop_duplicates(
-                        subset=["patient_id", "imaging_study_id"], inplace=True
-                    )
-                    if self.config["task"] == "ds_image":
-                        columns_list.extend(["procedure_code"])
-                elif resource == "procedure":
-                    df.drop_duplicates(
-                        subset=["patient_id", "procedure_id"], inplace=True
-                    )
-                elif resource == "encounter":
-                    df.drop_duplicates(subset=["patient_id", "id"], inplace=True)
-                elif resource == "service_request":
-                    cats_to_drop = [
-                        x
-                        for x in df.category_display.dropna().unique()
-                        if "labor" in x.lower()
-                        or "Imaging" in x
-                        or "radio" in x.lower()
-                        or "Röntgen" in x
-                    ]
-                    df = df[~df.category_display.isin(cats_to_drop)]
+            if self.config["task"] + "_drop_duplicates" in resource_dictionary:
+                drop_cols = resource_dictionary[
+                    self.config["task"] + "_drop_duplicates"
+                ]
+            elif "drop_duplicates" in resource_dictionary:
+                drop_cols = resource_dictionary["drop_duplicates"]
+            else:
+                drop_cols = None
 
-            if self.config["task"] == "ds_main_icd":
-                logger.warning(
-                    "You need to add the column that identifies the Main DRG here"
-                )
+            if drop_cols:
+                df.drop_duplicates(subset=drop_cols, inplace=True)
 
             # Filter columns
             df = df[columns_list]
             df_resources[resource] = df
 
+        logger.info("Reading and processing patient...")
         pat_df = check_and_read(self.config["task_dir"] / f"patient{OUTPUT_FORMAT}")
-        self.patient_ids = [pat for pat in pat_df["patient_id"]]
+        self.patient_ids = pat_df["patient_id"].to_list()
 
         date_columns_dict = {}
         for key, value in self.config["text_sampling_column_maps"].items():
             date_columns_dict[key] = value["main_col"]
 
         splits = (
-            calculate_splits(len(self.patient_ids), n)
-            if split_data
+            calculate_splits(len(self.patient_ids), num_splits)
+            if num_splits > 1
             else [(0, len(self.patient_ids))]
         )
 
@@ -281,29 +172,17 @@ class EncounterDatasetBuilder:
         return "unknown"
 
     def enc_to_string(self, enc: Any) -> str:
-        # assert isinstance(enc, pd.Series), f"enc must be a pd.Series {type(enc)}"
-
-        columns = [
-            "v3_act_code",
-            "type_display",
-            "fachabteilungsschluessel",
-            "start",
-            "aufnahmeanlass_display",
-        ]
-
-        # Check if all columns exist in the Pandas Series
-        if all(col in enc for col in columns):
-            enc_dict = {
-                "Beginn": enc.start,
-                "Kontarkt Art": enc.type_display,
-                "Art": enc.v3_act_code,
-                "Fachabteilungsschluessel": enc.fachabteilungsschluessel,
-                "Aufnahmeanlass": enc.aufnahmeanlass_display,
-            }
-            return self.dict_to_string(enc_dict)
-        else:
-            # Handle the case where some columns are missing
-            return "Some required columns are missing in the input Pandas Series."
+        enc_dict = {}
+        for col, name in [
+            ("start", "Beginn"),
+            ("type_display", "Kontakt Art"),
+            ("v3_act_code", "Art"),
+            ("fachabteilungsschluessel", "Fachabteilungsschlüssel"),
+            ("aufnahmeanlass_display", "Aufnahmeanlass"),
+        ]:
+            if hasattr(enc, col):
+                enc_dict[name] = getattr(enc, col)
+        return self.dict_to_string(enc_dict)
 
     @staticmethod
     def filter_data(df: pd.DataFrame, columns_map: Dict[str, str]) -> pd.DataFrame:
@@ -320,9 +199,12 @@ class EncounterDatasetBuilder:
     def pat_history_to_string(self, pat_data: Dict) -> str:
         filtered_dfs = []
 
-        for resource, config in self.filtered_column_map_txt_resources.items():
+        for resource, config in self.filtered_text_sampling_column_maps.items():
             main_col = config.get("main_col", None)
-            bracket_cols = config.get("bracket_cols", None)
+            if self.config["task"] + "_bracket_cols" in config:
+                bracket_cols = config[self.config["task"] + "_bracket_cols"]
+            else:
+                bracket_cols = config.get("bracket_cols", None)
 
             if resource == "condition" and "icd_version" in bracket_cols:
                 bracket_cols.remove("icd_version")
@@ -360,10 +242,9 @@ class EncounterDatasetBuilder:
         if all(df.empty for df in filtered_dfs):
             return ""
 
-        if self.config["debug"] and len(filtered_dfs) != len(
-            self.filtered_column_map_txt_resources
-        ):
-            return ""
+        assert len(filtered_dfs) == len(
+            self.filtered_text_sampling_column_maps
+        ), "There should be as many dataframes as there are resources"
 
         combined = pd.concat(filtered_dfs).reset_index(drop=True)
         combined.sort_values(by=["date", "resource"], inplace=True)
