@@ -135,8 +135,7 @@ text_sampling_column_maps: {
     "episode_of_care": {
         "main_col": "start",
         "bracket_cols": [
-        # TODO: Rerun download and then use these columns
-        #  "cert", "primary_case", "primary_year", "first_diagnosis_date", "bogen",
+          "cert", "primary_case", "primary_year", "first_diagnosis_date", "treatment_program",
         ]
     },
     "diagnostic_report": {
