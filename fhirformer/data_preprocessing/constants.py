@@ -1,5 +1,3 @@
-import numpy as np
-
 # https://www.bwtz-essen.de/Ueber_uns/Tumorzentrum/Westdeutsches_Tumorzentrum.php
 
 TUMOR_TYPE_MAP = {
@@ -38,5 +36,4 @@ TUMOR_TYPE_MAP = {
     "DCP12BASIS2": "Knochen- und Weichteiltumoren (Sarkome)",
     "DCP14BASIS": "Lebertumoren",
     "DCP14BASIS2": "Lebertumoren",
-    np.nan: np.nan,
 }
