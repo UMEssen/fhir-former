@@ -4,6 +4,9 @@ from fhirformer.data_preprocessing.encounter_dataset_builder import (
 from fhirformer.data_preprocessing.util import (
     skip_build,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PreTrainDatasetBuilder(EncounterDatasetBuilder):
@@ -33,6 +36,11 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
 
         pat_data = store_list_global[self.index].filter_patient(patient_id=patient_id)
 
+        tumor_string = self.get_tumors(pat_data.resources["episode_of_care"])
+
+        if len(tumor_string) > 0:
+            tumor_string = f"Tumor history: {tumor_string}\n\n"
+
         if len(pat_data.resources["encounter"]) == 0:
             return []
 
@@ -41,6 +49,9 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
         )
         sample_list = []
 
+        logger.debug(
+            f"Patient {patient_id} has {len(pat_data.resources['encounter'])} encounters"
+        )
         for enc in pat_data.resources["encounter"].itertuples(index=False):
             duration = (enc.end - enc.start).days
 
@@ -59,6 +70,7 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
                 f"{patient_metadata_str}"
                 f"Encounter:\n{self.enc_to_string(enc)}\n\n"
                 f"Duration: {duration}\n\n"
+                f"{tumor_string}"
                 f"ICD Version: {self.get_icd_version(resources_during_enc['condition'])}\n\n"
                 f"Patient journey in stay:\n{pat_hist}"
             )
@@ -71,6 +83,7 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
                 }
             )
 
+        logger.debug(f"Patient {patient_id} has {len(sample_list)} samples")
         return sample_list
 
 

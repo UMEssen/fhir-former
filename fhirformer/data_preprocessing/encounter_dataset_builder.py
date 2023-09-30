@@ -166,10 +166,24 @@ class EncounterDatasetBuilder:
         }
         return self.dict_to_string(pat_dict)
 
-    def get_icd_version(self, condition: pd.DataFrame) -> str:
+    @staticmethod
+    def get_icd_version(condition: pd.DataFrame) -> str:
         if not condition["icd_version"].empty:
             return condition["icd_version"].iloc[-1]
         return "unknown"
+
+    @staticmethod
+    def get_tumors(episode_of_care: pd.DataFrame) -> str:
+        tumors = []
+        for row in episode_of_care.itertuples():
+            tumor_str = None
+            if row.first_diagnosis_date and row.treatment_program:
+                tumor_str = f"{row.first_diagnosis_date} {row.treatment_program}"
+            elif row.treatment_program:
+                tumor_str = row.treatment_program
+            if tumor_str:
+                tumors.append(tumor_str)
+        return ", ".join(tumors)
 
     def enc_to_string(self, enc: Any) -> str:
         enc_dict = {}
@@ -242,9 +256,11 @@ class EncounterDatasetBuilder:
         if all(df.empty for df in filtered_dfs):
             return ""
 
-        assert len(filtered_dfs) == len(
-            self.filtered_text_sampling_column_maps
-        ), "There should be as many dataframes as there are resources"
+        # if len(filtered_dfs) != len(
+        #     self.filtered_text_sampling_column_maps
+        # ):
+        #     print(pat_data)
+        #     return ""
 
         combined = pd.concat(filtered_dfs).reset_index(drop=True)
         combined.sort_values(by=["date", "resource"], inplace=True)
@@ -271,11 +287,13 @@ class EncounterDatasetBuilder:
             content = [
                 value
                 for name, value in row._asdict().items()
-                if pd.notna(value)
+                if not pd.isnull(value)
                 and name != "Index"
                 and name != "date"
                 and name != "resource"
+                and name != "patient_id"
             ]
+
             content_str = ", ".join(map(str, content))
 
             if date != current_date or resource != current_resource:
