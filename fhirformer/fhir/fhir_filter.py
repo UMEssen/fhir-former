@@ -204,7 +204,7 @@ class FHIRFilter:
             axis=1,
         )
         for col in ["category", "category_display", "title"]:
-            df[col] = reduce_cardinality(df[col], set_to_none=False)
+            df[col] = reduce_cardinality(df[col], take_first=True)
         store_df(df, self.config["task_dir"] / f"diagnostic_report{OUTPUT_FORMAT}")
 
     def filter_patient_info(self):
