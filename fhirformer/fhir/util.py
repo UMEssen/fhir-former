@@ -3,7 +3,7 @@ import os
 import pickle
 import traceback
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 import pandas as pd
 import requests
@@ -75,12 +75,26 @@ def group_meta_patients(group_by_tuple: Tuple[str, pd.DataFrame]) -> List[Dict]:
     ]
 
 
-def reduce_cardinality(series: pd.Series, set_to_none: bool = False) -> pd.Series:
-    return series.apply(
-        lambda x: x[0]
-        if isinstance(x, list) and len(x) == 1
-        else (None if set_to_none else x)
-    )
+def choose_list_items(
+    x: Any, set_to_none: bool = False, take_first: bool = False
+) -> Any:
+    if isinstance(x, list):
+        if len(x) == 0:
+            return None
+        elif len(x) == 1 or take_first:
+            return sorted(x)[0]
+        elif set_to_none:
+            return None
+        else:
+            return x
+    else:
+        return x
+
+
+def reduce_cardinality(
+    series: pd.Series, set_to_none: bool = False, take_first: bool = False
+) -> pd.Series:
+    return series.apply(lambda x: choose_list_items(x, set_to_none, take_first))
 
 
 def store_df(df: pd.DataFrame, output_path: Path, resource: str = "resource"):
@@ -107,7 +121,9 @@ def check_and_read(path: Path) -> pd.DataFrame:
         raise ValueError("File type of " + str(path) + " not supported.")
 
 
-def get_text(session: requests.Session, url: str, content=None) -> Optional[str]:
+def get_text(
+    session: requests.Session, url: str, content=None, row_for_debug=None
+) -> Optional[str]:
     new_url = url if content in {None, "application/txt"} else url + "/txt"
     if new_url is None:
         return None
@@ -116,6 +132,7 @@ def get_text(session: requests.Session, url: str, content=None) -> Optional[str]
         return response.text
     except Exception:
         traceback.print_exc()
+        logging.error(f"Debug: {row_for_debug}")
         return None
 
 

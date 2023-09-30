@@ -777,6 +777,7 @@ class FHIRExtractor:
                         ume_auth.session,
                         row_dict["url"][chosen_id],
                         content=row_dict["content_type"][chosen_id],
+                        row_for_debug=row_dict,
                     )
                 else:
                     failed.append(row_dict)
