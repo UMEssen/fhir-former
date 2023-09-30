@@ -352,7 +352,7 @@ class EncounterDatasetBuilder:
         for list_index, patient_ids in tqdm(
             enumerate(self.patient_ids_lists), desc="Overall progress of patient lists"
         ):
-            if self.config["debug"] or True:
+            if self.config["debug"]:
                 numb_pats = round(len(patient_ids) * 0.001)
                 patient_ids = patient_ids[:numb_pats]
 
