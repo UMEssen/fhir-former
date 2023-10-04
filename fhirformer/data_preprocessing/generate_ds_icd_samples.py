@@ -39,7 +39,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
             global datastore
             datastore = load_datastore(datastore_path)
             with Pool(
-                processes=10,
+                processes=self.NUM_PROCESSES,
             ) as executor:
                 results_iter = list(
                     tqdm(

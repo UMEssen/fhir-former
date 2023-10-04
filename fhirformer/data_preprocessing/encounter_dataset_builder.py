@@ -31,6 +31,8 @@ def calculate_splits(total_patients, n):
 
 
 class EncounterDatasetBuilder:
+    NUM_PROCESSES = 30
+
     def __init__(self, config):
         random.seed(42)
         self.config = config
