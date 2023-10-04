@@ -38,7 +38,9 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
                 )
 
             # Remove empty lists
+            print(results_iter)
             results_iter = [x for x in results_iter if x]
+            print(results_iter)
             results.append(results_iter)
             if self.config["debug"]:
                 break

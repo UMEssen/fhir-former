@@ -345,8 +345,10 @@ class EncounterDatasetBuilder:
 
     def prepare(self, split_ratio: float) -> None:
         results = self.global_multiprocessing()
+        print(results)
         # list of list to list
         results_list = [sample for sublist in results for sample in sublist]
+        print(results_list)
 
         train_samples, val_samples = self.get_split_samples(results_list, split_ratio)
         all_samples_int = len(train_samples) + len(val_samples)

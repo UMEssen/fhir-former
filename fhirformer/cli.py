@@ -172,7 +172,7 @@ def run():
             ds_main_diag_llm.main,
             config=config,
         )
-    elif args.task in {"pretrain_samples_documents", "pretrain_samples"}:
+    elif args.task in {"pretrain_fhir_documents", "pretrain_fhir"}:
         # todo train on 5y data
         run_pipeline(
             generate_pre_train_samples.main,
