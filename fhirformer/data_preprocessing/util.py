@@ -1,5 +1,5 @@
 import logging
-
+import random
 from fhirformer.fhir.util import check_and_read
 from fhirformer.data_preprocessing.data_store import DataStore
 from typing import List
@@ -7,24 +7,33 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 
-def get_train_val_split(patient_ids: List[str], split_ratio: float = 0.8) -> tuple:
-    # patient_ids = sorted(set(patient_ids))
-    #
-    # # Split patient IDs into train and validation sets
-    # split_index = int(split_ratio * len(patient_ids))
-    # return patient_ids[:split_index], patient_ids[split_index:]
+def get_train_val_split(
+    patient_ids: List[str], sample_by_letter: List[str] = None, split_ratio: float = 0.8
+) -> tuple:
+    if sample_by_letter is not None:
+        patient_ids = list(set(patient_ids))
+        random.shuffle(patient_ids)
+        # Split patient IDs into train and validation sets
+        split_index = int(split_ratio * len(patient_ids))
+        return patient_ids[:split_index], patient_ids[split_index:]
+    else:
+        train_patients = filter(
+            patient_ids,
+            lambda x: any(x.startswith(letter) for letter in sample_by_letter),
+        )
+        val_patients = filter(
+            patient_ids,
+            lambda x: not any(x.startswith(letter) for letter in sample_by_letter),
+        )
 
-    train_patients = filter(patient_ids, lambda x: x.startswith("0"))
-    val_patients = filter(patient_ids, lambda x: not x.startswith("0"))
+        percent_train = len(train_patients) / len(patient_ids)
+        percent_val = len(val_patients) / len(patient_ids)
+        assert percent_val <= split_ratio, f"Validation set is too large: {percent_val}"
+        assert (
+            percent_val >= split_ratio - 0.1
+        ), f"Training set is too large: {percent_train}"
 
-    percent_train = len(train_patients) / len(patient_ids)
-    percent_val = len(val_patients) / len(patient_ids)
-    assert percent_val <= split_ratio, f"Validation set is too large: {percent_val}"
-    assert (
-        percent_val >= split_ratio - 0.1
-    ), f"Training set is too large: {percent_train}"
-
-    return train_patients, val_patients
+        return train_patients, val_patients
 
 
 def get_valid_labels(path: str, column: str, percentual_cutoff: float = 0.005) -> list:

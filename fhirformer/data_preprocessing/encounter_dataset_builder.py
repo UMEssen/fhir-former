@@ -39,6 +39,7 @@ class EncounterDatasetBuilder:
     def __init__(self, config):
         random.seed(42)
         self.config = config
+        self.sample_by_letter = None
         self.index = None
         self.patient_ids_lists = []
         self.patient_ids = []
@@ -317,8 +318,9 @@ class EncounterDatasetBuilder:
     def process_patient(args):
         raise NotImplementedError("Please implement this for each specific task")
 
-    @staticmethod
-    def get_split_samples(sample_list: List[List[Dict]], split_ratio: float = 0.8):
+    def get_split_samples(
+        self, sample_list: List[List[Dict]], split_ratio: float = 0.8
+    ):
         # Flatten the list
         flat_sample_list = [sample for sublist in sample_list for sample in sublist]
 
@@ -328,6 +330,7 @@ class EncounterDatasetBuilder:
         # Get unique patient IDs
         train_patients, val_patients = get_train_val_split(
             [sample["patient_id"] for sample in flat_sample_list],
+            sample_by_letter=self.sample_by_letter,
             split_ratio=split_ratio,
         )
 

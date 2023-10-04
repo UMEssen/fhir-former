@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 class PreTrainDatasetBuilder(EncounterDatasetBuilder):
     def __init__(self, config):
         super().__init__(config)
+        self.sample_by_letter = ["0"]
         # Here you can simply decide which resources you want to use
         self.resources_for_task = [
             "procedure",
