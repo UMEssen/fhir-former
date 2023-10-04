@@ -1,7 +1,6 @@
 import json
 import logging
 import random
-from multiprocessing.managers import NamespaceProxy
 from datetime import datetime
 from typing import Any, Dict, List
 import pandas as pd
@@ -12,24 +11,9 @@ from fhirformer.data_preprocessing.util import (
     get_column_map_txt_resources,
 )
 from fhirformer.data_preprocessing.data_store import DataStore
-import types
 import pickle
 
 logger = logging.getLogger(__name__)
-
-
-class DataStoreObjProxy(NamespaceProxy):
-    _exposed_ = tuple(dir(DataStore))
-
-    def __getattr__(self, name):
-        result = super().__getattr__(name)
-        if isinstance(result, types.MethodType):
-
-            def wrapper(*args, **kwargs):
-                return self._callmethod(name, args, kwargs)  # Note the return here
-
-            return wrapper
-        return result
 
 
 def calculate_splits(total_patients, n):
