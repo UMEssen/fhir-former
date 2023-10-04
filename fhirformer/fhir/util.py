@@ -121,6 +121,20 @@ def check_and_read(path: Path) -> pd.DataFrame:
         raise ValueError("File type of " + str(path) + " not supported.")
 
 
+def get_document_path(root_path: Path, filename: str, folder_depth: int = 0):
+    if folder_depth == 0:
+        return root_path / filename
+    else:
+        hex_filename = filename.replace(".txt", "")
+        # Create subfolders based on the filename
+        subfolders = [
+            hex_filename[i : i + folder_depth]
+            for i in range(0, len(hex_filename), folder_depth)
+        ]
+        destination_folder = root_path / "/".join(subfolders)
+        return destination_folder / filename
+
+
 def get_text(
     session: requests.Session, url: str, content=None, row_for_debug=None
 ) -> Optional[str]:

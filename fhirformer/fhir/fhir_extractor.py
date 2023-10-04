@@ -23,6 +23,7 @@ from fhirformer.fhir.util import (
     group_meta_patients,
     reduce_cardinality,
     store_df,
+    get_document_path,
 )
 from fhirformer.helper.util import timed
 
@@ -752,8 +753,10 @@ class FHIRExtractor:
                 iter(c for c in row_dict["category_display"] or [] if " " not in c),
                 "unknown",
             )
-            document_path = (
-                document_folder / category / f"{row_dict['diagnostic_report_id']}.txt"
+            document_path = get_document_path(
+                root_path=document_folder / category,
+                filename=f"{row_dict['diagnostic_report_id']}.txt",
+                folder_depth=64 // 8,
             )
             if document_path.exists():
                 continue
