@@ -1,7 +1,7 @@
 import traceback
 from dataclasses import dataclass
 import pandas as pd
-from typing import Dict
+from typing import Dict, List
 from pandas._libs.tslibs.np_datetime import OutOfBoundsDatetime
 import logging
 
@@ -69,6 +69,7 @@ def select_resources(
 @dataclass
 class DataStore:
     patient_df: pd.DataFrame
+    patient_list: List[str]
     resources: Dict[str, pd.DataFrame]
     date_columns: Dict[str, str]
 
@@ -110,6 +111,7 @@ class DataStore:
 
         return DataStore(
             patient_df=filtered_patient,
+            patient_list=filtered_patient["patient_id"].unique().tolist(),
             resources=filtered_resources,
             date_columns=self.date_columns,
         )

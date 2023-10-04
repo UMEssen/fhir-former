@@ -3,8 +3,16 @@ import logging
 from fhirformer.fhir.util import check_and_read
 from fhirformer.data_preprocessing.data_store import DataStore
 from typing import List
+from pathlib import Path
+import pickle
 
 logger = logging.getLogger(__name__)
+
+
+def load_datastore(datastore_path: Path):
+    with datastore_path.open("rb") as f:
+        datastore = pickle.load(f)
+    return datastore
 
 
 def get_valid_labels(path: str, column: str, percentual_cutoff: float = 0.005) -> list:
@@ -22,12 +30,6 @@ def validate_resources(resources, config):
             raise NotImplementedError(
                 f"Resource {resource} not in config['text_sampling_column_maps'].keys()."
             )
-
-
-def print_data_info(pats_int, store_list_global):
-    logger.info(f"Overall patients to process {pats_int}")
-    logger.info(f"{pats_int} are divided into {len(store_list_global)} lists")
-    logger.info(f"Split to patient ratio {pats_int/len(store_list_global)}")
 
 
 def get_column_map_txt_resources(config, resources_for_pre_training):

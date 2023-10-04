@@ -1,23 +1,35 @@
 import json
 import logging
 import random
-from concurrent.futures import ProcessPoolExecutor
+from multiprocessing.managers import NamespaceProxy
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
-
+from typing import Any, Dict, List
 import pandas as pd
 from tqdm import tqdm
-
 from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read
 from fhirformer.data_preprocessing.util import (
     validate_resources,
     get_column_map_txt_resources,
-    print_data_info,
-    get_patient_ids_lists,
 )
 from fhirformer.data_preprocessing.data_store import DataStore
+import types
+import pickle
 
 logger = logging.getLogger(__name__)
+
+
+class DataStoreObjProxy(NamespaceProxy):
+    _exposed_ = tuple(dir(DataStore))
+
+    def __getattr__(self, name):
+        result = super().__getattr__(name)
+        if isinstance(result, types.MethodType):
+
+            def wrapper(*args, **kwargs):
+                return self._callmethod(name, args, kwargs)  # Note the return here
+
+            return wrapper
+        return result
 
 
 def calculate_splits(total_patients, n):
@@ -39,12 +51,12 @@ class EncounterDatasetBuilder:
         random.seed(42)
         self.config = config
         self.index = None
-        self.patient_ids_lists = []
-        self.patient_ids = []
         self.resources_for_task = None
         self.filtered_text_sampling_column_maps = None
+        self.ds_folder = self.config["task_dir"] / "data_stores"
+        self.set_up_data(num_splits=100)
 
-    def set_up(self, store_list: List[DataStore]) -> None:
+    def set_up(self) -> None:
         assert (
             self.resources_for_task is not None
         ), "self.resources_for_task must be set by the inheriting class"
@@ -56,41 +68,21 @@ class EncounterDatasetBuilder:
             self.config, self.resources_for_task
         )
 
-        self.patient_ids_lists = get_patient_ids_lists(store_list)
-        # get some info
-        pats_int = sum([len(x) for x in self.patient_ids_lists])
-        print_data_info(pats_int, store_list)
-
-    def _process_split(
-        self,
-        idx_range: Tuple[int, int],
-        df_resources: dict,
-        pat_df: pd.DataFrame,
-        resources_with_date_column: dict,
-    ) -> "DataStore":
-        start_idx, end_idx = idx_range
-        fraction_patient_ids = self.patient_ids[start_idx:end_idx]
-        fraction_pat_df = pat_df[pat_df["patient_id"].isin(fraction_patient_ids)]
-
-        fraction_df_resources = {}
-        for resource, df in df_resources.items():
-            fraction_df_resources[resource] = df[
-                df["patient_id"].isin(fraction_patient_ids)
-            ]
-
-        return DataStore(
-            patient_df=fraction_pat_df,
-            resources=fraction_df_resources,
-            date_columns=resources_with_date_column,
-        )
-
-    def get_source_data(
+    def set_up_data(
         self,
         num_splits: int = 1,
-    ) -> List[DataStore]:
-        data_stores = []
+    ) -> None:
+        num_stores = [
+            1
+            for i in range(1, num_splits + 1)
+            if (self.ds_folder / f"datastore_{i}.pkl").exists()
+        ]
+        if sum(num_stores) == num_splits:
+            logger.info(
+                f"Skipping datastore creation, the splits are already stored in {self.ds_folder}"
+            )
+            return
         df_resources = {}
-
         # Read all resources first
         for resource, resource_dictionary in self.config[
             "text_sampling_column_maps"
@@ -125,21 +117,31 @@ class EncounterDatasetBuilder:
 
         logger.info("Reading and processing patient...")
         pat_df = check_and_read(self.config["task_dir"] / f"patient{OUTPUT_FORMAT}")
-        self.patient_ids = pat_df["patient_id"].to_list()
+        patient_ids = pat_df["patient_id"].to_list()
 
         date_columns_dict = {}
         for key, value in self.config["text_sampling_column_maps"].items():
             date_columns_dict[key] = value["main_col"]
 
         splits = (
-            calculate_splits(len(self.patient_ids), num_splits)
+            calculate_splits(len(patient_ids), num_splits)
             if num_splits > 1
-            else [(0, len(self.patient_ids))]
+            else [(0, len(patient_ids))]
         )
 
         logger.info("Running patient data split")
-        for start_idx, end_idx in tqdm(splits, desc="Processing patient data splits"):
-            fraction_patient_ids = self.patient_ids[start_idx:end_idx]
+        logger.info(
+            f"Overall patients to process: "
+            f"{len(patient_ids)} divided in {len(splits)}. "
+            f"Split to patient ratio: {len(patient_ids) / len(splits)}"
+        )
+        self.ds_folder.mkdir(parents=True, exist_ok=True)
+
+        for i, (start_idx, end_idx) in enumerate(
+            tqdm(splits, desc="Processing patient data splits"),
+            start=1,
+        ):
+            fraction_patient_ids = patient_ids[start_idx:end_idx]
             fraction_pat_df = pat_df[pat_df["patient_id"].isin(fraction_patient_ids)]
 
             fraction_df_resources = {}
@@ -148,14 +150,16 @@ class EncounterDatasetBuilder:
                     df["patient_id"].isin(fraction_patient_ids)
                 ]
 
-            data_stores.append(
-                DataStore(
-                    patient_df=fraction_pat_df,
-                    resources=fraction_df_resources,
-                    date_columns=date_columns_dict,
-                )
+            ds = DataStore(
+                patient_df=fraction_pat_df,
+                patient_list=fraction_patient_ids,
+                resources=fraction_df_resources,
+                date_columns=date_columns_dict,
             )
-        return data_stores
+            with (self.ds_folder / f"datastore_{i}.pkl").open("wb") as of:
+                pickle.dump(ds, of)
+
+        logger.info(f"Finished dividing patient data into {len(splits)} splits.")
 
     def pat_df_to_string(self, patient_df: pd.DataFrame) -> str:
         # Patient corner
@@ -313,7 +317,7 @@ class EncounterDatasetBuilder:
         return "\n".join(["\t".join([str(k), str(v)]) for k, v in d.items()])
 
     @staticmethod
-    def process_patient(args):
+    def process_patient(patient_id: str, datastore: DataStore) -> List[Dict]:
         raise NotImplementedError("Please implement this for each specific task")
 
     @staticmethod
@@ -347,42 +351,22 @@ class EncounterDatasetBuilder:
 
         return train_samples, val_samples
 
+    def global_multiprocessing(self):
+        """
+        This is horrible, I know. This function will get repeated in all files, because of multiple reasons:
+        1. There is no way to share a global variable between this class and each child class as far as I can see.
+        Using global variables is already a bad solution, but I don't see any other way to do this.
+        2. I have tried to share the DataStore using a NamespaceProxy, which is supposed to be the right way to do this,
+        but it was blocking and just not working.
+        I have tried something like this:
+        https://stackoverflow.com/questions/72798554/how-to-use-multiprocessing-to-share-a-large-database-among-processes
+        https://stackoverflow.com/questions/26499548/accessing-an-attribute-of-a-multiprocessing-proxy-of-a-class/68123850#68123850
+        but it was still very very slow.
+        """
+        raise NotImplementedError("Please implement this for each specific task")
+
     def prepare(self, split_ratio: float) -> None:
-        results = []
-        for list_index, patient_ids in tqdm(
-            enumerate(self.patient_ids_lists), desc="Overall progress of patient lists"
-        ):
-            if self.config["debug"]:
-                numb_pats = round(len(patient_ids) * 0.001)
-                patient_ids = patient_ids[:numb_pats]
-
-            self.index = list_index
-
-            # profiler = cProfile.Profile()
-            # profiler.enable()
-
-            with ProcessPoolExecutor(
-                max_workers=30,
-            ) as executor:
-                results_iter = list(
-                    tqdm(
-                        executor.map(self.process_patient, patient_ids, chunksize=10),
-                        total=len(patient_ids),
-                        desc="Processing patients",
-                    )
-                )
-
-            # profiler.disable()
-            # stats = pstats.Stats(profiler).sort_stats("cumulative")
-            # stats.sort_stats("cumulative").print_stats(
-            #     300
-            # )  # prints the top 10 cumulative time consuming functions calls
-            # exit()
-
-            # Remove empty lists
-            results_iter = [x for x in results_iter if x]
-            results.append(results_iter)
-
+        results = self.global_multiprocessing()
         # list of list to list
         results_list = [sample for sublist in results for sample in sublist]
 
