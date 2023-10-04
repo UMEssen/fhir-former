@@ -136,6 +136,8 @@ def get_document_path(root_path: Path, filename: str, folder_depth: int = 0):
 
 
 def get_category_name(categories: List[str]):
+    if len(categories) == 0:
+        return "unknown"
     category = next(
         iter(c for c in categories or [] if " " not in c),
         None,
