@@ -144,6 +144,23 @@ text_sampling_column_maps: {
     }
 }
 
+resources_for_task: {
+    "default": [
+        "condition",
+        "procedure",
+        "imaging_study",
+        "diagnostic_report",
+        "biologically_derived_product",
+        "observation",  # todo needs adaption to not only deal with lab values
+        "episode_of_care",
+        "service_request",
+        "medication",
+    ],
+    "pretrain_documents": [
+        "diagnostic_report",
+    ],
+}
+
 
 # Training
 load_from_file: False
