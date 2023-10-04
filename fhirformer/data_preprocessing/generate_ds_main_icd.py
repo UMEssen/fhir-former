@@ -9,19 +9,6 @@ from multiprocessing import Pool
 class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
     def __init__(self, config):
         super().__init__(config)
-        # Here you can simply decide which resources you want to use
-        self.resources_for_task = [
-            "procedure",
-            "condition",
-            "imaging_study",
-            "biologically_derived_product",
-            "observation",
-            "service_request",
-            "medication",
-            "episode_of_care",
-            "diagnostic_report",
-        ]
-        self.set_up()
 
     def global_multiprocessing(self):
         results = []

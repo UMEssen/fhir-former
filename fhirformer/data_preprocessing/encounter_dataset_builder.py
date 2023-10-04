@@ -10,6 +10,7 @@ from fhirformer.data_preprocessing.util import (
     validate_resources,
     get_column_map_txt_resources,
 )
+from fhirformer.helper.util import get_nondependent_resources
 from fhirformer.data_preprocessing.data_store import DataStore
 import pickle
 
@@ -37,22 +38,13 @@ class EncounterDatasetBuilder:
         random.seed(42)
         self.config = config
         self.index = None
-        self.resources_for_task = None
-        self.filtered_text_sampling_column_maps = None
-        self.ds_folder = self.config["task_dir"] / "data_stores"
-        self.set_up_data(num_splits=100)
-
-    def set_up(self) -> None:
-        assert (
-            self.resources_for_task is not None
-        ), "self.resources_for_task must be set by the inheriting class"
-
-        # filter column_maps by resources_with_date_column
+        self.resources_for_task = get_nondependent_resources(self.config)
         validate_resources(self.resources_for_task, self.config)
-
         self.filtered_text_sampling_column_maps = get_column_map_txt_resources(
             self.config, self.resources_for_task
         )
+        self.ds_folder = self.config["task_dir"] / "data_stores"
+        self.set_up_data(num_splits=100)
 
     def set_up_data(
         self,
