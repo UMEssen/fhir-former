@@ -13,7 +13,7 @@ from fhirformer.data_preprocessing import (
     generate_pre_train_samples,
 )
 from fhirformer.fhir import FHIRExtractor, FHIRFilter, FHIRValidator
-from fhirformer.helper.util import name_from_model, timed
+from fhirformer.helper.util import name_from_model, timed, get_nondependent_resources
 from fhirformer.ml import ds_main_diag_llm, ds_multi_label, pre_train_llm
 
 # Set up logging
@@ -50,13 +50,7 @@ def build_cache(config):
     filt = FHIRFilter(config)
     validator = FHIRValidator(config)
 
-    non_dependent_resources = config["resources_for_task"].get(config["task"], None)
-    if non_dependent_resources is None:
-        logger.warning(
-            f"Task {config['task']} not found in resources_for_task of the config, "
-            f"using default value."
-        )
-        non_dependent_resources = config["resources_for_task"].get(config["default"])
+    non_dependent_resources = get_nondependent_resources(config)
 
     dependent_resources = sorted(
         ["encounter", "patient"]
