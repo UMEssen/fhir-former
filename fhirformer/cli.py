@@ -148,6 +148,9 @@ def run():
 
     build_cache(config)
 
+    if config["download_documents"]:
+        exit()
+
     with (config["task_dir"] / "config.pkl").open("wb") as of:
         pickle.dump(config, of)
 
