@@ -49,17 +49,15 @@ def build_cache(config):
     extract = FHIRExtractor(config)
     filt = FHIRFilter(config)
     validator = FHIRValidator(config)
-    non_dependent_resources = [
-        "condition",
-        "procedure",
-        "imaging_study",
-        "diagnostic_report",  # todo what shall we do with this?
-        "biologically_derived_product",
-        "observation",  # todo needs adaption to not only deal with lab values
-        "episode_of_care",
-        "service_request",
-        "medication",
-    ]
+
+    non_dependent_resources = config["resources_for_task"].get(config["task"], None)
+    if non_dependent_resources is None:
+        logger.warning(
+            f"Task {config['task']} not found in resources_for_task of the config, "
+            f"using default value."
+        )
+        non_dependent_resources = config["resources_for_task"].get(config["default"])
+
     dependent_resources = sorted(
         ["encounter", "patient"]
     )  # todo think about merging encounters with based basedon Encounter/95e3c9cb3f4b5bd691b9a426096506c44ce070cd63d8643fe572ab7c5d844c2a
@@ -113,7 +111,7 @@ def parse_args_local(config) -> argparse.Namespace:
     parser.add_argument(
         "--debug",
         type=bool,
-        default=False,
+        default=config["debug"],
     )
     return parser.parse_args()
 
@@ -129,11 +127,11 @@ def run():
             "please change this when you are done testing."
         )
 
-    if config["debug"]:
-        config["start_datetime"] = "2021-03-01"
-        config["end_datetime"] = "2021-03-30"
-        config["run_id"] = "testing_30d"
-        config.update(vars(args))
+    # if config["debug"]:
+    #     config["start_datetime"] = "2021-03-01"
+    #     config["end_datetime"] = "2021-03-30"
+    #     config["run_id"] = "testing_30d"
+    #     config.update(vars(args))
 
     config["root_dir"] = config["root_dir"] / config["run_id"]
     config["data_dir"] = config["root_dir"] / "data_raw"
@@ -180,12 +178,14 @@ def run():
             ds_main_diag_llm.main,
             config=config,
         )
-    elif args.task == "pretrain":
+    elif args.task in {"pretrain_samples_documents", "pretrain_samples"}:
         # todo train on 5y data
         run_pipeline(
             generate_pre_train_samples.main,
             pre_train_llm.main,
             config=config,
         )
+    elif args.task == "pretrain_documents":
+        raise NotImplementedError
     else:
         raise ValueError(f"Task {args.task} not recognized")
