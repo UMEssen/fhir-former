@@ -14,6 +14,7 @@ from fhirformer.data_preprocessing.util import (
     get_column_map_txt_resources,
     print_data_info,
     get_patient_ids_lists,
+    get_train_val_split,
 )
 from fhirformer.data_preprocessing.data_store import DataStore
 
@@ -325,13 +326,10 @@ class EncounterDatasetBuilder:
         flat_sample_list = [x for x in flat_sample_list if len(x)]
 
         # Get unique patient IDs
-        patient_ids = list(set([sample["patient_id"] for sample in flat_sample_list]))
-        random.shuffle(patient_ids)
-
-        # Split patient IDs into train and validation sets
-        split_index = int(split_ratio * len(patient_ids))
-        train_patients = patient_ids[:split_index]
-        val_patients = patient_ids[split_index:]
+        train_patients, val_patients = get_train_val_split(
+            [sample["patient_id"] for sample in flat_sample_list],
+            split_ratio=split_ratio,
+        )
 
         # Create train and validation samples
         train_samples = [
