@@ -51,7 +51,6 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
         - Patient history within encounter len must be > 0
         """
         pat_data = datastore.filter_patient(patient_id=patient_id)
-
         tumor_string = self.get_tumors(pat_data.resources["episode_of_care"])
 
         if len(tumor_string) > 0:
@@ -77,7 +76,9 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
                 end_filter_date=enc.end,
             ).resources
 
-            pat_hist = self.pat_history_to_string(resources_during_enc)
+            pat_hist = self.pat_history_to_string(
+                resources_during_enc, remove_duplicates=True
+            )
 
             if not pat_hist:
                 continue

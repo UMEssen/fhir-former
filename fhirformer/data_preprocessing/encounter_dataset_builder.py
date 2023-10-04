@@ -14,6 +14,7 @@ from fhirformer.data_preprocessing.util import (
 from fhirformer.helper.util import get_nondependent_resources
 from fhirformer.data_preprocessing.data_store import DataStore
 import pickle
+from functools import partial
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +195,9 @@ class EncounterDatasetBuilder:
         filtered_df = df[list(columns_map.keys())]
         return filtered_df.rename(columns=columns_map)
 
-    def pat_history_to_string(self, pat_data: Dict) -> str:
+    def pat_history_to_string(
+        self, pat_data: Dict, remove_duplicates: bool = False
+    ) -> str:
         filtered_dfs = []
 
         for resource, config in self.filtered_text_sampling_column_maps.items():
@@ -248,8 +251,11 @@ class EncounterDatasetBuilder:
 
         combined = pd.concat(filtered_dfs).reset_index(drop=True)
         combined.sort_values(by=["date", "resource"], inplace=True)
-        combined.set_index("date", inplace=True)
-        all_resources_string = self.df_to_string(combined)
+
+        result_list = combined.groupby(["date", "resource"]).apply(
+            partial(self.group_resources, remove_duplicates=remove_duplicates)
+        )
+        all_resources_string = "\n".join(result_list)
 
         return all_resources_string.strip()
 
@@ -258,39 +264,26 @@ class EncounterDatasetBuilder:
         return (datetime.now() - pd.to_datetime(birth_date)).days // 365
 
     @staticmethod
-    def df_to_string(com: pd.DataFrame):
-        result_list = []
-        current_date = None
-        current_resource = None
+    def group_resources(df: pd.DataFrame, remove_duplicates: bool = False):
+        relevant_info = []
+        for row_dict in df.to_dict(orient="records"):
+            relevant_info.append(
+                ", ".join(
+                    [
+                        str(value)
+                        for name, value in row_dict.items()
+                        if not pd.isnull(value)
+                        and name not in {"date", "resource", "patient_id"}
+                    ]
+                )
+            )
 
-        for row in com.itertuples():
-            date = row.Index  # Access the 'date' field
-            resource = row.resource  # Access the 'resource' field
+        if remove_duplicates:
+            relevant_info = list(set(relevant_info))
 
-            # Create a list of the non-null, non-"resource" values in the row
-            content = [
-                value
-                for name, value in row._asdict().items()
-                if not pd.isnull(value)
-                and name != "Index"
-                and name != "date"
-                and name != "resource"
-                and name != "patient_id"
-            ]
-
-            content_str = ", ".join(map(str, content))
-
-            if date != current_date or resource != current_resource:
-                if current_date is not None:
-                    result_list.append("\n")
-                result_list.append(f"{date} {resource}: {content_str}")
-                current_date = date
-                current_resource = resource
-            else:
-                result_list.append(f", {content_str}")
-
-        result_str = "".join(result_list)
-        return result_str
+        date = df["date"].iloc[0]
+        resource = df["resource"].iloc[0]
+        return f"{date} {resource}: {'; '.join(relevant_info)}"
 
     @staticmethod
     def dict_to_string(d):
