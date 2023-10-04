@@ -7,7 +7,10 @@ from fhirformer.data_preprocessing.encounter_dataset_builder import (
 from fhirformer.data_preprocessing.util import (
     get_valid_labels,
     skip_build,
+    load_datastore,
 )
+from tqdm import tqdm
+from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +30,43 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
             "episode_of_care",
             "diagnostic_report",
         ]
-        global store_list_global
-        store_list_global = self.get_source_data(num_splits=2)
-        self.set_up(store_list_global)
+        self.set_up()
+
+    def global_multiprocessing(self):
+        results = []
+        for datastore_path in tqdm(
+            sorted(self.ds_folder.glob("datastore*.pkl")),
+            desc="Overall progress of datastores",
+        ):
+            global datastore
+            datastore = load_datastore(datastore_path)
+            with Pool(
+                processes=10,
+            ) as executor:
+                results_iter = list(
+                    tqdm(
+                        executor.imap_unordered(
+                            self.process_patient,
+                            datastore.patient_list,
+                            chunksize=10,
+                        ),
+                        total=len(datastore.patient_list),
+                        desc="Processing patients",
+                    )
+                )
+
+            # Remove empty lists
+            results_iter = [x for x in results_iter if x]
+            results.append(results_iter)
+            if self.config["debug"]:
+                break
+        return results
 
     def process_patient(self, patient_id: str):
         """
         - Patient needs at least one imaging study and one encounter
         """
-        pat_data = store_list_global[self.index].filter_patient(patient_id=patient_id)
+        pat_data = datastore[self.index].filter_patient(patient_id=patient_id)
 
         if (
             len(pat_data.patient_df) == 0
