@@ -24,6 +24,7 @@ from fhirformer.fhir.util import (
     reduce_cardinality,
     store_df,
     get_document_path,
+    get_category_name,
 )
 from fhirformer.helper.util import timed
 
@@ -749,10 +750,7 @@ class FHIRExtractor:
         failed = []
         for row_dict in tqdm(df.to_dict(orient="records"), total=len(df)):
             txt = None
-            category = next(
-                iter(c for c in row_dict["category_display"] or [] if " " not in c),
-                "unknown",
-            )
+            category = get_category_name(row_dict["category_display"])
             document_path = get_document_path(
                 root_path=document_folder / category,
                 filename=f"{row_dict['diagnostic_report_id']}.txt",
