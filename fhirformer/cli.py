@@ -18,6 +18,12 @@ from fhirformer.ml import ds_main_diag_llm, ds_multi_label, pre_train_llm
 
 # Set up logging
 LOG_LEVEL = logging.INFO
+logging.basicConfig(
+    format="%(levelname)s %(asctime)s [%(name)s.%(funcName)s:%(lineno)d]: %(message)s",
+    level=LOG_LEVEL,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    force=True,
+)
 logging.getLogger().setLevel(LOG_LEVEL)
 
 logger = logging.getLogger(__name__)
