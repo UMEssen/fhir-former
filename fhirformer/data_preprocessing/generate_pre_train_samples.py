@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 class PreTrainDatasetBuilder(EncounterDatasetBuilder):
     def __init__(self, config):
         super().__init__(config)
+        self.sample_by_letter = ["0"]
 
     def global_multiprocessing(self):
         results = []

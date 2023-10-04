@@ -9,6 +9,7 @@ from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read
 from fhirformer.data_preprocessing.util import (
     validate_resources,
     get_column_map_txt_resources,
+    get_train_val_split,
 )
 from fhirformer.helper.util import get_nondependent_resources
 from fhirformer.data_preprocessing.data_store import DataStore
@@ -37,6 +38,7 @@ class EncounterDatasetBuilder:
     def __init__(self, config):
         random.seed(42)
         self.config = config
+        self.sample_by_letter = None
         self.index = None
         self.resources_for_task = get_nondependent_resources(self.config)
         validate_resources(self.resources_for_task, self.config)
@@ -298,8 +300,9 @@ class EncounterDatasetBuilder:
     def process_patient(patient_id: str, datastore: DataStore) -> List[Dict]:
         raise NotImplementedError("Please implement this for each specific task")
 
-    @staticmethod
-    def get_split_samples(sample_list: List[List[Dict]], split_ratio: float = 0.8):
+    def get_split_samples(
+        self, sample_list: List[List[Dict]], split_ratio: float = 0.8
+    ):
         # Flatten the list
         flat_sample_list = [sample for sublist in sample_list for sample in sublist]
 
@@ -307,13 +310,11 @@ class EncounterDatasetBuilder:
         flat_sample_list = [x for x in flat_sample_list if len(x)]
 
         # Get unique patient IDs
-        patient_ids = list(set([sample["patient_id"] for sample in flat_sample_list]))
-        random.shuffle(patient_ids)
-
-        # Split patient IDs into train and validation sets
-        split_index = int(split_ratio * len(patient_ids))
-        train_patients = patient_ids[:split_index]
-        val_patients = patient_ids[split_index:]
+        train_patients, val_patients = get_train_val_split(
+            [sample["patient_id"] for sample in flat_sample_list],
+            sample_by_letter=self.sample_by_letter,
+            split_ratio=split_ratio,
+        )
 
         # Create train and validation samples
         train_samples = [
