@@ -31,7 +31,7 @@ def get_nondependent_resources(config):
             f"Task {config['task']} not found in resources_for_task of the config, "
             f"using default value."
         )
-        non_dependent_resources = config["resources_for_task"].get(config["default"])
+        non_dependent_resources = config["resources_for_task"].get("default")
     return non_dependent_resources
 
 
