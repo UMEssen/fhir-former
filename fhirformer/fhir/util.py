@@ -135,6 +135,16 @@ def get_document_path(root_path: Path, filename: str, folder_depth: int = 0):
         return destination_folder / filename
 
 
+def get_category_name(categories: List[str]):
+    category = next(
+        iter(c for c in categories or [] if " " not in c),
+        None,
+    )
+    if category is None:
+        category = categories[0].replace(" ", "_")
+    return category
+
+
 def get_text(
     session: requests.Session, url: str, content=None, row_for_debug=None
 ) -> Optional[str]:
