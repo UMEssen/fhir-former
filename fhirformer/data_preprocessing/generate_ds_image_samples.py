@@ -53,7 +53,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
         """
         - Patient needs at least one imaging study and one encounter
         """
-        pat_data = datastore[self.index].filter_patient(patient_id=patient_id)
+        pat_data = datastore.filter_patient(patient_id=patient_id)
 
         if (
             len(pat_data.patient_df) == 0
