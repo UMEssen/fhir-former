@@ -34,7 +34,6 @@ class Pretrainer:
             else AutoTokenizer.from_pretrained(config["model_checkpoint"])
         )
         self.model_best_path = config["model_dir"] / "best"
-        self.model_best_path.mkdir(parents=True, exist_ok=True)
 
     def compute_metrics(self, eval_pred: EvalPrediction):
         batch_size = 1 * self.config["eval_accumulation_steps"]
@@ -140,6 +139,7 @@ class Pretrainer:
             metric_for_best_model="loss",
             greater_is_better=False,
         )
+        self.model_best_path.mkdir(parents=True, exist_ok=True)
 
         with training_args.main_process_first(desc="Create Dataset"):
             fhir_train_dataset, fhir_val_dataset, doc_train_dataset, doc_val_dataset = (
