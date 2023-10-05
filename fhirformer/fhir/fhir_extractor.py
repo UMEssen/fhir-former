@@ -25,6 +25,7 @@ from fhirformer.fhir.util import (
     store_df,
     get_document_path,
     get_category_name,
+    FOLDER_DEPTH,
 )
 from fhirformer.helper.util import timed
 
@@ -754,7 +755,7 @@ class FHIRExtractor:
             document_path = get_document_path(
                 root_path=document_folder / category,
                 filename=f"{row_dict['diagnostic_report_id']}.txt",
-                folder_depth=64 // 8,
+                folder_depth=FOLDER_DEPTH,
             )
             if document_path.exists():
                 continue

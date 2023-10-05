@@ -6,6 +6,7 @@ import logging
 from typing import Dict, List
 from tqdm import tqdm
 from multiprocessing import Pool
+from fhirformer.data_preprocessing.constants import SAMPLE_BY_LETTER
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 class PreTrainDatasetBuilder(EncounterDatasetBuilder):
     def __init__(self, config):
         super().__init__(config)
-        self.sample_by_letter = ["0"]
+        self.sample_by_letter = SAMPLE_BY_LETTER
 
     def global_multiprocessing(self):
         results = []

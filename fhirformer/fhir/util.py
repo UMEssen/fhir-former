@@ -24,6 +24,7 @@ auth = Ahoy(
 )
 
 OUTPUT_FORMAT = ".pkl"
+FOLDER_DEPTH = 64 // 8
 
 
 def group_meta_patients(group_by_tuple: Tuple[str, pd.DataFrame]) -> List[Dict]:

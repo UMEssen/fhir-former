@@ -37,3 +37,5 @@ TUMOR_TYPE_MAP = {
     "DCP14BASIS": "Lebertumoren",
     "DCP14BASIS2": "Lebertumoren",
 }
+
+SAMPLE_BY_LETTER = ["0"]

@@ -7,8 +7,10 @@ from fhirformer.fhir.util import (
     check_and_read,
     get_category_name,
     get_document_path,
+    FOLDER_DEPTH,
 )
 from fhirformer.data_preprocessing.util import get_train_val_split
+from fhirformer.data_preprocessing.constants import SAMPLE_BY_LETTER
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +74,7 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
         )
         train_patients, val_patients = get_train_val_split(
             df["patient_id"].unique().tolist(),
-            sample_by_letter=["0"],
+            sample_by_letter=SAMPLE_BY_LETTER,
             split_ratio=0.8,
         )
         train_df = df[df["patient_id"].isin(train_patients)]
@@ -111,7 +113,7 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
             document_path = get_document_path(
                 root_path=self.config.document_folder / category_name,
                 filename=document_name + ".txt",
-                folder_depth=64 // 8,
+                folder_depth=FOLDER_DEPTH,
             )
             with document_path.open("r") as fp:
                 text = fp.read()
