@@ -344,7 +344,7 @@ class EncounterDatasetBuilder:
             else:
                 logger.info(f"Generated {len(flat_sample_list)} samples.")
             with open(all_samples_file, "w") as outfile:
-                json.dump(flat_sample_list, outfile, indent=4)
+                json.dump(flat_sample_list, outfile)
         else:
             logger.info("Loading samples from file...")
             with open(all_samples_file, "r") as infile:
@@ -356,8 +356,8 @@ class EncounterDatasetBuilder:
 
         # Save the training samples
         with open(self.config["task_dir"] / "train.json", "w") as outfile:
-            json.dump(train_samples, outfile, indent=4)
+            json.dump(train_samples, outfile)
 
         # Save the validation samples
         with open(self.config["task_dir"] / "test.json", "w") as outfile:
-            json.dump(val_samples, outfile, indent=4)
+            json.dump(val_samples, outfile)
