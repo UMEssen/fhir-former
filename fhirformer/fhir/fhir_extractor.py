@@ -15,17 +15,17 @@ from tqdm import tqdm
 
 from fhirformer.fhir.functions import extract_bdp, extract_imaging_study
 from fhirformer.fhir.util import (
+    FOLDER_DEPTH,
     OUTPUT_FORMAT,
     auth,
     check_and_read,
     engine,
+    get_category_name,
+    get_document_path,
     get_text,
     group_meta_patients,
     reduce_cardinality,
     store_df,
-    get_document_path,
-    get_category_name,
-    FOLDER_DEPTH,
 )
 from fhirformer.helper.util import timed
 
@@ -759,11 +759,16 @@ class FHIRExtractor:
             )
             if document_path.exists():
                 continue
+            # Some documents, like radiology documents,
+            # have a data field where the document is stored
             if row_dict["data"] is not None and len(row_dict["data"]) > 0:
                 assert len(row_dict["data"]) == 1, row_dict["diagnostic_report_id"]
                 txt = base64.b64decode(row_dict["data"][0]).decode()
+            # Other documents have an url with different formats
             elif row_dict["url"] is not None and len(row_dict["url"]) > 0:
-                for choice in ["text", "pdf", "word"]:
+                # Iterate over the formats that we can handle, in order of preference
+                for choice in ["text", "word", "pdf"]:
+                    # Choose the format, if it is available in the content types
                     chosen_id = next(
                         iter(
                             i
@@ -772,17 +777,17 @@ class FHIRExtractor:
                         ),
                         None,
                     )
+                    # If the format exists, try to download it
                     if chosen_id is not None:
-                        break
-                if chosen_id is not None:
-                    txt = get_text(
-                        ume_auth.session,
-                        row_dict["url"][chosen_id],
-                        content=row_dict["content_type"][chosen_id],
-                        row_for_debug=row_dict,
-                    )
-                else:
-                    failed.append(row_dict)
+                        txt = get_text(
+                            ume_auth.session,
+                            row_dict["url"][chosen_id],
+                            content=row_dict["content_type"][chosen_id],
+                            row_for_debug=row_dict,
+                        )
+                        # If we managed to download something, break out of the loop
+                        if txt is not None:
+                            break
             else:
                 failed.append(row_dict)
             if txt is None:
