@@ -54,7 +54,7 @@ def get_train_val_split(
         )
         assert percent_val <= split_ratio, f"Validation set is too large: {percent_val}"
         assert (
-            percent_val >= split_ratio - tolerance
+            percent_train <= split_ratio + tolerance
         ), f"Training set is too large: {percent_train}"
 
         return train_patients, val_patients
