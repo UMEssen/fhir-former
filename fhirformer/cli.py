@@ -104,12 +104,12 @@ def parse_args_local(config) -> argparse.Namespace:
     )
     parser.add_argument(
         "--debug",
-        type=bool,
+        action="store_true",
         default=config["debug"],
     )
     parser.add_argument(
         "--download_documents",
-        type=bool,
+        action="store_true",
         default=config["download_documents"],
     )
     return parser.parse_args()
