@@ -1,12 +1,14 @@
+import logging
+from multiprocessing import Pool
+from typing import Dict, List
+
+from tqdm import tqdm
+
+from fhirformer.data_preprocessing.constants import SAMPLE_BY_LETTER
 from fhirformer.data_preprocessing.encounter_dataset_builder import (
     EncounterDatasetBuilder,
 )
-from fhirformer.data_preprocessing.util import skip_build, load_datastore
-import logging
-from typing import Dict, List
-from tqdm import tqdm
-from multiprocessing import Pool
-from fhirformer.data_preprocessing.constants import SAMPLE_BY_LETTER
+from fhirformer.data_preprocessing.util import load_datastore, skip_build
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +54,13 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
         - Patient history within encounter len must be > 0
         """
         pat_data = datastore.filter_patient(patient_id=patient_id)
-        tumor_string = self.get_tumors(pat_data.resources["episode_of_care"])
-
-        if len(tumor_string) > 0:
-            tumor_string = f"Tumor history: {tumor_string}\n\n"
 
         if len(pat_data.resources["encounter"]) == 0:
             return []
+
+        tumor_string = self.get_tumors(pat_data.resources["episode_of_care"])
+        if len(tumor_string) > 0:
+            tumor_string = f"Tumor history: {tumor_string}\n\n"
 
         patient_metadata_str = (
             f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
