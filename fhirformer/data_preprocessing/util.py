@@ -97,7 +97,6 @@ def skip_build(config: dict) -> bool:
         not config["rerun_cache"]
         and (config["task_dir"] / "train.json").exists()
         and (config["task_dir"] / "test.json").exists()
-        and not config["debug"]
     ):
         logger.info("Skipping sampling ...")
         return True
