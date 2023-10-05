@@ -214,6 +214,7 @@ class FHIRFilter:
             else x["effective_datetime"],
             axis=1,
         )
+        df["original_category_display"] = df["category_display"]
         for col in ["category", "category_display", "title"]:
             df[col] = reduce_cardinality(df[col], take_first=True)
         store_df(df, self.config["task_dir"] / f"diagnostic_report{OUTPUT_FORMAT}")
