@@ -14,7 +14,7 @@ poetry run fhirformer --task [pretrain_fhir|pretrain_documents|pretrain_fhir_doc
 ## Run with docker
 
 ```
-docker compose run trainer bash
+GPUS=0,1,2 docker compose run trainer bash
 ```
 
 and inside the docker container

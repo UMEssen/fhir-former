@@ -13,6 +13,7 @@ services:
       memlock: -1
       stack: 67108864
     environment:
+      - NVIDIA_VISIBLE_DEVICES=$GPUS
       - FHIR_USER
       - FHIR_PASSWORD
       - SEARCH_URL
