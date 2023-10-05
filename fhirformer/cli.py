@@ -10,11 +10,13 @@ from fhirformer.data_preprocessing import (
     generate_ds_icd_samples,
     generate_ds_image_samples,
     generate_ds_main_icd,
+    generate_ds_readmission_samples,
     generate_pre_train_samples,
 )
 from fhirformer.fhir import FHIRExtractor, FHIRFilter, FHIRValidator
 from fhirformer.helper.util import get_nondependent_resources, name_from_model, timed
-from fhirformer.ml import ds_main_diag_llm, ds_multi_label, pre_train_llm
+from fhirformer.ml import ds_multi_label, ds_single_label, pre_train_llm
+from fhirformer.ml.util import init_wandb
 
 # Set up logging
 LOG_LEVEL = logging.INFO
@@ -163,6 +165,7 @@ def run():
         # todo debug generate_ds_icd_samples.main
         run_pipeline(
             generate_ds_icd_samples.main,
+            init_wandb,
             ds_multi_label.main,
             config=config,
         )
@@ -170,25 +173,35 @@ def run():
         # todo train some more
         run_pipeline(
             generate_ds_image_samples.main,
+            init_wandb,
             ds_multi_label.main,
+            config=config,
+        )
+    elif args.task == "ds_readmission":
+        run_pipeline(
+            generate_ds_readmission_samples.main,
+            init_wandb,
+            ds_single_label.main,
             config=config,
         )
     elif args.task == "ds_main_icd":
         # todo debug ds_main_diag_samples.main + create ds_single_label.main for generic training with single label
         run_pipeline(
             generate_ds_main_icd.main,
-            ds_main_diag_llm.main,
+            init_wandb,
+            ds_single_label.main,
             config=config,
         )
     elif args.task in {"pretrain_fhir_documents", "pretrain_fhir"}:
-        # todo train on 5y data
         run_pipeline(
             generate_pre_train_samples.main,
+            init_wandb,
             pre_train_llm.main,
             config=config,
         )
     elif args.task == "pretrain_documents":
         run_pipeline(
+            init_wandb,
             pre_train_llm.main,
             config=config,
         )
