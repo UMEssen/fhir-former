@@ -156,6 +156,7 @@ class EncounterDatasetBuilder:
     @staticmethod
     def get_icd_version(condition: pd.DataFrame) -> str:
         if not condition["icd_version"].empty:
+            # TODO: Why do we even put it if it's always the last one?
             return condition["icd_version"].iloc[-1]
         return "unknown"
 
