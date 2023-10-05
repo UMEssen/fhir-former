@@ -81,22 +81,33 @@ class FHIRFilter:
         encs = check_and_read(path)
         pat_df = pat_df[pat_df["patient_id"].isin(encs["patient_id"])]
 
-        print(f"len pre split {len(pat_df)}")
-        # Take only 50 % of the patients
-        pretrain_pats = pat_df["linked_patient_id"].unique()[: len(pat_df) // 2]
-        downstream_pats = pat_df["linked_patient_id"].unique()[len(pat_df) // 2 :]
+        patients_ids = pat_df["linked_patient_id"].unique().tolist()
 
+        logger.info(
+            f"Number of patients before splitting into pretrain and downstream: {len(patients_ids)}"
+        )
+
+        # TODO: Decide what is best
+        # Take only 50 % of the patients
+        pretrain_pats = patients_ids[: len(patients_ids) // 2]
+        downstream_pats = patients_ids[len(patients_ids) // 2 :]
+
+        # For the five years, because of the sorting these are just as likely as the others
         # pretrain_pats = pat_df[
         #     pat_df["linked_patient_id"].str.startswith(
-        #         tuple(map(str, [0, 1, 2, 3, 4, 5, 6, 7]))
+        #         tuple(map(str, [0, 1, 2, 3, 4]))
         #     )
-        # ]["linked_patient_id"].unique()
+        # ]["linked_patient_id"].unique().tolist()
         # downstream_pats = pat_df.loc[
         #     ~pat_df["linked_patient_id"].isin(pretrain_pats), "linked_patient_id"
-        # ].unique()
+        # ].unique().tolist()
 
-        logger.info(len(pd.Series(pretrain_pats).unique()))
-        logger.info(len(pd.Series(downstream_pats).unique()))
+        logger.info(
+            f"There are {len(pretrain_pats)} ({len(pretrain_pats) / len(patients_ids):.2f}) "
+            f"patients for pretraining "
+            f"and {len(downstream_pats)} ({len(downstream_pats) / len(patients_ids):.2f}) "
+            f"patients for downstream tasks."
+        )
         with (self.config["data_dir"] / "pretrain_patient_ids.pkl").open("wb") as of:
             pickle.dump(pretrain_pats, of)
 
