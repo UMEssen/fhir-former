@@ -4,16 +4,15 @@ import wandb
 
 
 def init_wandb(config):
-    init = "LOCAL_RANK" not in os.environ or int(os.environ["LOCAL_RANK"]) == 0
-    if init:
-        wandb.init(
-            tags=["baseline"],
-            project=config["task"],
-            name=config["model_name"] + "_" + config["run_id"],
-            mode="online",
-            entity="ship-ai-autopilot",
-        )
-        wandb.run.log_code(".")
+    wandb.init(
+        tags=["baseline"],
+        project=config["task"],
+        name=config["model_name"] + "_" + config["run_id"],
+        mode="online",
+        entity="ship-ai-autopilot",
+        group="DDP",
+    )
+    wandb.run.log_code(".")
 
 
 def resolve_paths(input_dict):

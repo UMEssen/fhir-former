@@ -6,35 +6,28 @@ import wandb
 from scipy.special import expit
 from sklearn.preprocessing import MultiLabelBinarizer
 from torch.nn import BCEWithLogitsLoss
-from transformers import Trainer, TrainingArguments
 
 from fhirformer.helper.util import timed
-from fhirformer.ml.callbacks import (
-    BestScoreLoggingCallback,
-    TrainingLossLoggingCallback,
-)
 from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.patient_encounter_dataset import PatientEncounterDataset
 
 
-class MultiCodesDataset(PatientEncounterDataset):
+class MultiLabelDataset(PatientEncounterDataset):
     def __init__(self, config, max_length=None, num_samples=None):
         super().__init__(config, max_length, num_samples)
 
-        icds = [item["labels"] for item in self.data]
+        possible_labels = [item["labels"] for item in self.data]
         # Create a mapping of unique root ICD-10 codes to integers
         self.config = config
         self.mlb = MultiLabelBinarizer()
-        self.labels = self.mlb.fit_transform(icds)
+        self.labels = self.mlb.fit_transform(possible_labels)
         self.num_classes = len(self.mlb.classes_)
 
     def __getitem__(self, idx) -> Dict[str, Union[int, str, torch.Tensor]]:
         return {
             **self.prepare_used_items(idx),
             "label_codes": self.mlb.classes_,
-            "labels": torch.Tensor(
-                self.labels[idx]
-            ),  # changed from "label" to "labels"
+            "labels": torch.Tensor(self.labels[idx]),
             "decoded_labels": [
                 self.mlb.classes_[i]
                 for i, label in enumerate(self.labels[idx])
@@ -43,7 +36,7 @@ class MultiCodesDataset(PatientEncounterDataset):
         }
 
 
-class DSMulti(DownstreamTask):
+class MultiLabelTrainer(DownstreamTask):
     def __init__(
         self,
         config,
@@ -55,7 +48,7 @@ class DSMulti(DownstreamTask):
     ):
         super().__init__(
             config=config,
-            dataset_class=MultiCodesDataset,
+            dataset_class=MultiLabelDataset,
             dataset_args={"config": config, "max_length": None, "num_samples": None},
             model_checkpoint=model_checkpoint,
             batch_size=batch_size,
@@ -108,32 +101,10 @@ class DSMulti(DownstreamTask):
 
         return metrics
 
-    def train(self) -> None:
-        wandb.run.log_code(".")
-
-        args = self.get_default_training_arguments()
-        training_args = TrainingArguments(**args)
-
-        trainer = Trainer(
-            model=self.model,
-            args=training_args,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.val_dataset,
-            compute_metrics=self.compute_metrics,
-            callbacks=[
-                TrainingLossLoggingCallback,
-                BestScoreLoggingCallback,
-                self.early_stopping_callback(),
-            ],
-        )
-
-        trainer.train()
-        trainer.save_model(self.model_best_path)
-
 
 @timed
 def main(config):
-    ds_multi = DSMulti(
-        config, config["model_checkpoint"], epochs=config["train_epochs"]
+    ds_multi = MultiLabelTrainer(
+        config, config["model_checkpoint"], epochs=config["num_train_epochs"]
     )
     ds_multi.train()
