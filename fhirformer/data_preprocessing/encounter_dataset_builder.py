@@ -34,13 +34,12 @@ def calculate_splits(total_patients, n):
 
 
 class EncounterDatasetBuilder:
-    NUM_PROCESSES = 30
+    NUM_PROCESSES = 50
 
     def __init__(self, config):
         random.seed(42)
         self.config = config
         self.sample_by_letter = None
-        self.index = None
         self.resources_for_task = get_nondependent_resources(self.config)
         validate_resources(self.resources_for_task, self.config)
         self.filtered_text_sampling_column_maps = get_column_map_txt_resources(
