@@ -12,6 +12,7 @@ from fhirformer.fhir.util import (
     check_and_read,
     get_category_name,
     get_document_path,
+    store_df,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
     RELEVANT_COLUMNS = [
         "diagnostic_report_id",
         "encounter_id",
-        "category_display",
+        "original_category_display",
         "patient_id",
         "date",
     ]
@@ -56,7 +57,6 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
             "patient_id": datasets.Value("string"),
             "diagnostic_report_id": datasets.Value("string"),
             "encounter_id": datasets.Value("string"),
-            "category": datasets.Value("string"),
             "category_display": datasets.Value("string"),
             "date": datasets.Value("string"),
             "text": datasets.Value("string"),
@@ -72,16 +72,28 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
     def _split_generators(
         self, dl_manager: datasets.DownloadManager
     ) -> List[datasets.SplitGenerator]:
-        df = check_and_read(
-            self.config.task_folder / f"diagnostic_report{OUTPUT_FORMAT}"
+        document_splits_train = (
+            self.config.task_folder / f"documents_train{OUTPUT_FORMAT}"
         )
-        train_patients, val_patients = get_train_val_split(
-            df["patient_id"].unique().tolist(),
-            sample_by_letter=SAMPLE_BY_LETTER,
-            split_ratio=0.8,
-        )
-        train_df = df[df["patient_id"].isin(train_patients)]
-        val_df = df[df["patient_id"].isin(val_patients)]
+        document_splits_val = self.config.task_folder / f"documents_val{OUTPUT_FORMAT}"
+        if document_splits_train.exists():
+            logger.info("Loading documents splits from disk.")
+            train_df = check_and_read(document_splits_train)
+            val_df = check_and_read(document_splits_val)
+        else:
+            logger.info("Creating documents splits...")
+            df = check_and_read(
+                self.config.task_folder / f"diagnostic_report{OUTPUT_FORMAT}"
+            )
+            train_patients, val_patients = get_train_val_split(
+                df["patient_id"].unique().tolist(),
+                sample_by_letter=SAMPLE_BY_LETTER,
+                split_ratio=0.8,
+            )
+            train_df = df[df["patient_id"].isin(train_patients)]
+            val_df = df[df["patient_id"].isin(val_patients)]
+            store_df(train_df, document_splits_train)
+            store_df(val_df, document_splits_val)
 
         train_df_dict = train_df.to_dict(orient="list")
         val_df_dict = val_df.to_dict(orient="list")
@@ -106,18 +118,20 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
         self,
         diagnostic_report_id: List[str],
         encounter_id: List[str],
-        category_display: List[List[str]],
+        original_category_display: List[List[str]],
         patient_id: List[str],
         date: List[str],
     ) -> Generator:
         logger.info(f"Generating splits for {len(diagnostic_report_id)} documents.")
         for i, document_name in enumerate(diagnostic_report_id):
-            category_name = get_category_name(category_display[i])
+            category_name = get_category_name(original_category_display[i])
             document_path = get_document_path(
                 root_path=self.config.document_folder / category_name,
                 filename=document_name + ".txt",
                 folder_depth=FOLDER_DEPTH,
             )
+            if not document_path.exists():
+                continue
             with document_path.open("r") as fp:
                 text = fp.read()
             yield f"{document_name}", {
