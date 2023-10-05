@@ -18,6 +18,7 @@ from transformers import (
 )
 
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
+from fhirformer.ml.util import init_wandb
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
@@ -83,7 +84,7 @@ class Pretrainer:
         return dataset.map(
             lambda examples: self.tokenizer(
                 examples["text"],
-                truncation=True,
+                truncation=self.config["truncation"],
                 padding="max_length",
                 max_length=None,  # , return_tensors="pt"
             )
@@ -164,6 +165,7 @@ class Pretrainer:
             train_dataset = self.tokenize(train_dataset)
             val_dataset = self.tokenize(val_dataset)
             logger.info("Starting pre-training...")
+            init_wandb(self.config)
 
         # Define data collator
         data_collator = DataCollatorForLanguageModeling(

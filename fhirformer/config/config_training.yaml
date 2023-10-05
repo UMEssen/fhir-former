@@ -11,6 +11,7 @@ root_dir: "/data"
 # Training params
 num_train_epochs: 1000
 load_from_file: False
+truncation: True
 
 # Enforce run and not read cache
 rerun_cache: False

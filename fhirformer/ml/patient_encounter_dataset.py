@@ -19,7 +19,7 @@ class PatientEncounterDataset(Dataset):
     def prepare_used_items(self, idx: int) -> Dict[str, Union[int, str]]:
         encoding = self.tokenizer(
             self.data[idx]["text"],
-            truncation=True,
+            truncation=self.config["truncation"],
             padding="max_length",
             max_length=self.max_length,
         )
