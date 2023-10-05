@@ -1,14 +1,13 @@
 import logging
+from multiprocessing import Pool
 
 import pandas as pd
+from tqdm import tqdm
 
 from fhirformer.data_preprocessing.encounter_dataset_builder import (
     EncounterDatasetBuilder,
 )
-
-from fhirformer.data_preprocessing.util import skip_build, load_datastore
-from tqdm import tqdm
-from multiprocessing import Pool
+from fhirformer.data_preprocessing.util import load_datastore, skip_build
 
 logger = logging.getLogger()
 
@@ -66,23 +65,26 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
         pat_data = datastore.filter_patient(patient_id=patient_id)
 
         sample_list = []
-        if len(pat_data.enc) == 0 or len(pat_data.con) == 0:
-            return []
+        if (
+            len(pat_data.resources["encounter"]) == 0
+            or len(pat_data.resources["condition"]) == 0
+        ):
+            return sample_list
 
         patient_metadata_str = (
             f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
         )
 
-        for _, enc in pat_data.enc.iterrows():
+        for enc in pat_data.resources["encounter"].itertuples(index=False):
             resources_during_enc = pat_data.filter_patient(
                 patient_id=patient_id,
-                start_filter_date=enc["start"],
-                end_filter_date=enc["end"],
-            )
+                start_filter_date=enc.start,
+                end_filter_date=enc.end,
+            ).resources
             if len(resources_during_enc["imaging_study"]) == 0:
                 continue
 
-            duration = (enc["end"] - enc["start"]).days
+            duration = (enc.end - enc.start).days
             if duration <= 2:
                 continue
 
@@ -94,7 +96,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     patient_id=patient_id,
                     start_filter_date=enc.start,
                     end_filter_date=date,
-                )
+                ).resources
 
                 if len(resources_during_sample["condition"]) == 0:
                     continue
@@ -104,24 +106,21 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     start_filter_date=date,
                     end_filter_date=enc.end,
                     target_resource="condition",
+                ).resources["condition"]
+
+                # TODO: make sure that there we have new conditions compared to the last sample
+
+                labels = (
+                    con_labels_df.loc[
+                        con_labels_df["icd_code"].str.startswith(
+                            ("GB", "GROUPBOX", "PATSTURZ")
+                        ),
+                        "icd_code",
+                    ]
+                    .unique()
+                    .tolist()
                 )
 
-                label_con = con_labels_df["icd_code"].tolist()
-
-                # todo filter out conditions that start with "GB", "GROUPBOX", "PATSTURZ" before
-                # todo make sure that there we have new conditions compared to the last sample
-
-                labels = list(
-                    set(
-                        [
-                            label
-                            for label in label_con.icd_code.values.tolist()
-                            if not label.startswith("GB")
-                            and not label.startswith("GROUPBOX")
-                            and not label.startswith("PATSTURZ")
-                        ]
-                    )
-                )
                 # Skip if no labels
                 if not labels:
                     continue
@@ -141,11 +140,11 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
 
                 unique_labels = list(set([x.split(".")[0] for x in labels]))
                 if len(unique_labels) == 0:
-                    logger.error("No labels")
+                    raise ValueError(f"No labels were generated for {labels}.")
                 sample_list.append(
                     {
                         "patient_id": str(patient_id),
-                        "encounter_id": str(enc["encounter_id"]),
+                        "encounter_id": str(enc.id),
                         "text": text,
                         "label": list(set([x.split(".")[0] for x in labels])),
                     }
