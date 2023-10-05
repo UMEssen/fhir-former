@@ -13,7 +13,7 @@ from fhirformer.data_preprocessing import (
     generate_pre_train_samples,
 )
 from fhirformer.fhir import FHIRExtractor, FHIRFilter, FHIRValidator
-from fhirformer.helper.util import name_from_model, timed, get_nondependent_resources
+from fhirformer.helper.util import get_nondependent_resources, name_from_model, timed
 from fhirformer.ml import ds_main_diag_llm, ds_multi_label, pre_train_llm
 
 # Set up logging
@@ -107,6 +107,11 @@ def parse_args_local(config) -> argparse.Namespace:
         type=bool,
         default=config["debug"],
     )
+    parser.add_argument(
+        "--download_documents",
+        type=bool,
+        default=config["download_documents"],
+    )
     return parser.parse_args()
 
 
@@ -183,6 +188,9 @@ def run():
             config=config,
         )
     elif args.task == "pretrain_documents":
-        raise NotImplementedError
+        run_pipeline(
+            pre_train_llm.main,
+            config=config,
+        )
     else:
         raise ValueError(f"Task {args.task} not recognized")
