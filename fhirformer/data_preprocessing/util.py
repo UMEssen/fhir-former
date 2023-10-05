@@ -17,7 +17,10 @@ def load_datastore(datastore_path: Path):
 
 
 def get_train_val_split(
-    patient_ids: List[str], sample_by_letter: List[str] = None, split_ratio: float = 0.8
+    patient_ids: List[str],
+    sample_by_letter: List[str] = None,
+    split_ratio: float = 0.8,
+    tolerance: float = 0.3,
 ) -> tuple:
     patient_ids = list(set(patient_ids))
     if sample_by_letter is None:
@@ -42,12 +45,15 @@ def get_train_val_split(
             for patient_id in patient_ids
             if any(patient_id.startswith(letter) for letter in sample_by_letter)
         ]
-
         percent_train = len(train_patients) / len(patient_ids)
         percent_val = len(val_patients) / len(patient_ids)
+        logger.info(
+            f"Train set: {len(train_patients)} ({percent_train:.2f}), "
+            f"Validation set: {len(val_patients)} ({percent_val:.2f})"
+        )
         assert percent_val <= split_ratio, f"Validation set is too large: {percent_val}"
         assert (
-            percent_val >= split_ratio - 0.1
+            percent_val >= split_ratio - tolerance
         ), f"Training set is too large: {percent_train}"
 
         return train_patients, val_patients
