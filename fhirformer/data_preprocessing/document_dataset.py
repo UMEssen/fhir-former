@@ -1,16 +1,18 @@
+import logging
 from pathlib import Path
 from typing import Any, Generator, List
+
 import datasets
-import logging
+
+from fhirformer.data_preprocessing.constants import SAMPLE_BY_LETTER
+from fhirformer.data_preprocessing.util import get_train_val_split
 from fhirformer.fhir.util import (
+    FOLDER_DEPTH,
     OUTPUT_FORMAT,
     check_and_read,
     get_category_name,
     get_document_path,
-    FOLDER_DEPTH,
 )
-from fhirformer.data_preprocessing.util import get_train_val_split
-from fhirformer.data_preprocessing.constants import SAMPLE_BY_LETTER
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,8 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
 
     BUILDER_CONFIGS = [
         DocumentConfig(
-            name="test",
+            # TODO: Would love this to be a wildcard but currently don't know how to do it
+            name="pretrain_documents",
             document_folder=Path.cwd(),
             task_folder=Path.cwd(),
         )
