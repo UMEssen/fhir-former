@@ -308,6 +308,7 @@ class FHIRExtractor:
     def build_encounter_raw(self):
         self.default_metrics_extraction(
             output_name="encounter_raw",
+            # TODO: add encounter_id for being more consistent, have to change the samplers
             query=f"""
             select e.id,
             e._id as metrics_id,
