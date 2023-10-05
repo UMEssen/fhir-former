@@ -4,6 +4,8 @@ import random
 from pathlib import Path
 from typing import List
 
+import pandas as pd
+
 from fhirformer.data_preprocessing.data_store import DataStore
 from fhirformer.fhir.util import check_and_read
 
@@ -35,17 +37,11 @@ def get_train_val_split(
             f"Splitting the patients using {sample_by_letter}. "
             f"The patients starting with these characters will be in the validation set."
         )
-        # TODO: Doing this with dataframes is faster
-        train_patients = [
-            patient_id
-            for patient_id in patient_ids
-            if not any(patient_id.startswith(letter) for letter in sample_by_letter)
-        ]
-        val_patients = [
-            patient_id
-            for patient_id in patient_ids
-            if any(patient_id.startswith(letter) for letter in sample_by_letter)
-        ]
+        patient_series = pd.Series(patient_ids)
+        train_patients = patient_series[
+            ~patient_series.str.startswith(tuple(sample_by_letter))
+        ].tolist()
+        val_patients = patient_series[~patient_series.isin(train_patients)].tolist()
         percent_train = len(train_patients) / len(patient_ids)
         percent_val = len(val_patients) / len(patient_ids)
         logger.info(
