@@ -36,10 +36,9 @@ def calculate_splits(total_patients, n):
 
 
 class EncounterDatasetBuilder:
-    NUM_PROCESSES = 50
-
     def __init__(self, config):
         random.seed(42)
+        self.num_processes = config["num_processes"]
         self.config = config
         self.sample_by_letter = None
         self.resources_for_task = get_nondependent_resources(self.config)

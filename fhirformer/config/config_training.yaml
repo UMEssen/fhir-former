@@ -7,7 +7,7 @@ task: None
 start_datetime: "2018-01-01"
 end_datetime: "2023-01-01"
 run_id: "2018-2023-v1"
-
+num_parallel: 30
 debug: False
 
 root_dir: "/data"

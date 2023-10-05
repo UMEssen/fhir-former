@@ -25,7 +25,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
             global datastore
             datastore = load_datastore(datastore_path)
             with Pool(
-                processes=self.NUM_PROCESSES,
+                processes=self.num_processes,
             ) as executor:
                 results_iter = list(
                     tqdm(
