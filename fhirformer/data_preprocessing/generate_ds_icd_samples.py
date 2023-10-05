@@ -60,7 +60,6 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
         Sampling:
             - Sampling starts one day after encounter start
             - Step size is one day
-
         """
         pat_data = datastore.filter_patient(patient_id=patient_id)
 
@@ -76,13 +75,14 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
         )
 
         for enc in pat_data.resources["encounter"].itertuples(index=False):
-            resources_during_enc = pat_data.filter_patient(
-                patient_id=patient_id,
-                start_filter_date=enc.start,
-                end_filter_date=enc.end,
-            ).resources
-            if len(resources_during_enc["imaging_study"]) == 0:
-                continue
+            # TODO: Why do we need this?
+            # resources_during_enc = pat_data.filter_patient(
+            #     patient_id=patient_id,
+            #     start_filter_date=enc.start,
+            #     end_filter_date=enc.end,
+            # ).resources
+            # if len(resources_during_enc["imaging_study"]) == 0:
+            #     continue
 
             duration = (enc.end - enc.start).days
             if duration <= 2:
@@ -92,16 +92,16 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
             for date in pd.date_range(
                 enc.start + pd.Timedelta(days=1), enc.end - pd.Timedelta(days=1)
             ):
-                resources_during_sample = pat_data.filter_patient(
-                    patient_id=patient_id,
-                    start_filter_date=enc.start,
-                    end_filter_date=date,
-                ).resources
-
-                if len(resources_during_sample["condition"]) == 0:
-                    continue
-
-                con_labels_df = pat_data.filter_patient(
+                # TODO: Why do we need this?
+                # resources_during_sample = pat_data.filter_patient(
+                #     patient_id=patient_id,
+                #     start_filter_date=enc.start,
+                #     end_filter_date=date,
+                # ).resources
+                # if len(resources_during_sample["condition"]) == 0:
+                #     continue
+                # From date on we take the conditions
+                condition_labels_df = pat_data.filter_patient(
                     patient_id=patient_id,
                     start_filter_date=date,
                     end_filter_date=enc.end,
@@ -111,8 +111,8 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                 # TODO: make sure that there we have new conditions compared to the last sample
 
                 labels = (
-                    con_labels_df.loc[
-                        con_labels_df["icd_code"].str.startswith(
+                    condition_labels_df.loc[
+                        ~condition_labels_df["icd_code"].str.startswith(
                             ("GB", "GROUPBOX", "PATSTURZ")
                         ),
                         "icd_code",
@@ -125,7 +125,11 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                 if not labels:
                     continue
 
-                pat_hist = self.pat_history_to_string(resources_during_enc)
+                resources_until_date = pat_data.filter_patient(
+                    patient_id=patient_id,
+                    end_filter_date=date - pd.Timedelta(days=1),
+                ).resources
+                pat_hist = self.pat_history_to_string(resources_until_date)
 
                 if not pat_hist:
                     continue
@@ -134,7 +138,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     f"{patient_metadata_str}"
                     f"Encounter:\n{self.enc_to_string(enc)}\n\n"
                     f"Duration: {duration}\n\n"
-                    f"ICD Version: {self.get_icd_version(resources_during_enc['condition'])}\n\n"
+                    f"ICD Version: {self.get_icd_version(resources_until_date['condition'])}\n\n"
                     f"Patient journey:\n{pat_hist}"
                 )
 
@@ -146,7 +150,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                         "patient_id": str(patient_id),
                         "encounter_id": str(enc.id),
                         "text": text,
-                        "label": list(set([x.split(".")[0] for x in labels])),
+                        "labels": list(set([x.split(".")[0] for x in labels])),
                     }
                 )
 
