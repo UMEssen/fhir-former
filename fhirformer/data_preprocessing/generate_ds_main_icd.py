@@ -84,6 +84,7 @@ class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
             # Condition corner
             # todo code_med_hauptdiagnose is now code or sth check ;)
             # TODO: is it icd_code?
+            raise NotImplementedError("Fix todos before running this!")
             con_label = (
                 resources_during_enc["condition"]
                 .loc[resources_during_enc["condition"]["icd_code"]]
