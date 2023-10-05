@@ -1,20 +1,22 @@
 import json
 import logging
+import pickle
 import random
 from datetime import datetime
+from functools import partial
 from typing import Any, Dict, List
+
 import pandas as pd
 from tqdm import tqdm
-from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read
+
+from fhirformer.data_preprocessing.data_store import DataStore
 from fhirformer.data_preprocessing.util import (
-    validate_resources,
     get_column_map_txt_resources,
     get_train_val_split,
+    validate_resources,
 )
+from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read
 from fhirformer.helper.util import get_nondependent_resources
-from fhirformer.data_preprocessing.data_store import DataStore
-import pickle
-from functools import partial
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +99,9 @@ class EncounterDatasetBuilder:
 
         logger.info("Reading and processing patient...")
         pat_df = check_and_read(self.config["task_dir"] / f"patient{OUTPUT_FORMAT}")
-        patient_ids = pat_df["patient_id"].to_list()
+        patient_ids = pat_df["patient_id"].unique().tolist()
+        random.seed(42)
+        random.shuffle(patient_ids)
 
         date_columns_dict = {}
         for key, value in self.config["text_sampling_column_maps"].items():
@@ -292,32 +296,20 @@ class EncounterDatasetBuilder:
     def process_patient(patient_id: str, datastore: DataStore) -> List[Dict]:
         raise NotImplementedError("Please implement this for each specific task")
 
-    def get_split_samples(
-        self, sample_list: List[List[Dict]], split_ratio: float = 0.8
-    ):
-        # Flatten the list
-        flat_sample_list = [sample for sublist in sample_list for sample in sublist]
-
-        # Remove empty dictionaries
-        flat_sample_list = [x for x in flat_sample_list if len(x)]
-
+    def get_split_samples(self, sample_list: List[Dict], split_ratio: float = 0.8):
         # Get unique patient IDs
         train_patients, val_patients = get_train_val_split(
-            [sample["patient_id"] for sample in flat_sample_list],
+            [sample["patient_id"] for sample in sample_list],
             sample_by_letter=self.sample_by_letter,
             split_ratio=split_ratio,
         )
 
         # Create train and validation samples
         train_samples = [
-            sample
-            for sample in flat_sample_list
-            if sample["patient_id"] in train_patients
+            sample for sample in sample_list if sample["patient_id"] in train_patients
         ]
         val_samples = [
-            sample
-            for sample in flat_sample_list
-            if sample["patient_id"] in val_patients
+            sample for sample in sample_list if sample["patient_id"] in val_patients
         ]
 
         return train_samples, val_samples
@@ -337,17 +329,31 @@ class EncounterDatasetBuilder:
         raise NotImplementedError("Please implement this for each specific task")
 
     def prepare(self, split_ratio: float) -> None:
-        results = self.global_multiprocessing()
-        # list of list to list
-        results_list = [sample for sublist in results for sample in sublist]
+        all_samples_file = self.config["task_dir"] / "all_samples.json"
+        if not all_samples_file.exists():
+            logger.info("Starting sample generation...")
+            results = self.global_multiprocessing()
+            # list of list to list
+            sample_list = [sample for sublist in results for sample in sublist]
+            # Flatten the list
+            flat_sample_list = [sample for sublist in sample_list for sample in sublist]
+            # Remove empty dictionaries
+            flat_sample_list = [x for x in flat_sample_list if len(x)]
 
-        train_samples, val_samples = self.get_split_samples(results_list, split_ratio)
-        all_samples_int = len(train_samples) + len(val_samples)
-
-        if all_samples_int == 0:
-            raise ValueError("No samples generated. Please check your data.")
+            if len(flat_sample_list) == 0:
+                raise ValueError("No samples generated. Please check your data.")
+            else:
+                logger.info(f"Generated {len(flat_sample_list)} samples.")
+            with open(all_samples_file, "w") as outfile:
+                json.dump(flat_sample_list, outfile, indent=4)
         else:
-            logger.info(f"Generated {all_samples_int} samples.")
+            logger.info("Loading samples from file...")
+            with open(all_samples_file, "r") as infile:
+                flat_sample_list = json.load(infile)
+
+        train_samples, val_samples = self.get_split_samples(
+            flat_sample_list, split_ratio
+        )
 
         # Save the training samples
         with open(self.config["task_dir"] / "train.json", "w") as outfile:
