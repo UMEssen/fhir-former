@@ -1,16 +1,17 @@
 import logging
+from multiprocessing import Pool
 from pathlib import Path
+
+from tqdm import tqdm
 
 from fhirformer.data_preprocessing.encounter_dataset_builder import (
     EncounterDatasetBuilder,
 )
 from fhirformer.data_preprocessing.util import (
     get_valid_labels,
-    skip_build,
     load_datastore,
+    skip_build,
 )
-from tqdm import tqdm
-from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +67,13 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
             f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
         )
         sample_list = []
-        for _, enc in pat_data.resources["encounter"].iterrows():
+        for enc in pat_data.resources["encounter"].itertuples(index=False):
             # get imaging study for encounter duration
 
             imaging_study_during_enc = pat_data.filter_patient(
                 patient_id=patient_id,
-                start_filter_date=enc["start"],
-                end_filter_date=enc["end"],
+                start_filter_date=enc.start,
+                end_filter_date=enc.end,
                 target_resource="imaging_study",
             )
             if len(imaging_study_during_enc.resources["imaging_study"]) == 0:
@@ -97,10 +98,14 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 if len(labels) == 0:
                     continue
 
-                # get all fucking data before the encounter starts
+                # Get data before the beginning of this particular encounter
                 resources_before_enc = pat_data.filter_patient(
-                    patient_id=patient_id, end_filter_date=enc["start"]
+                    patient_id=patient_id, end_filter_date=enc.start
                 ).resources
+
+                tumor_string = self.get_tumors(resources_before_enc["episode_of_care"])
+                if len(tumor_string) > 0:
+                    tumor_string = f"Tumor history: {tumor_string}\n\n"
 
                 pat_hist = self.pat_history_to_string(resources_before_enc)
 
@@ -110,6 +115,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 text = (
                     f"{patient_metadata_str}"
                     f"Encounter:\n{self.enc_to_string(enc)}\n\n"
+                    f"{tumor_string}"
                     f"ICD Version: {self.get_icd_version(resources_before_enc['condition'])}\n\n"
                     f"Patient history:\n{pat_hist}"
                 )
@@ -117,8 +123,8 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 sample_list.append(
                     {
                         "patient_id": str(patient_id),
-                        "encounter_id": enc["id"],
-                        "encounter_start_date": str(enc["start"]),
+                        "encounter_id": enc.id,
+                        "encounter_start_date": str(enc.start),
                         "text": text,
                         "labels": labels,
                     }
