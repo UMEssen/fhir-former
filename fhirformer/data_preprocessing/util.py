@@ -35,6 +35,7 @@ def get_train_val_split(
             f"Splitting the patients using {sample_by_letter}. "
             f"The patients starting with these characters will be in the validation set."
         )
+        # TODO: Doing this with dataframes is faster
         train_patients = [
             patient_id
             for patient_id in patient_ids
