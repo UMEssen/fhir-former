@@ -1,9 +1,11 @@
+from multiprocessing import Pool
+
+from tqdm import tqdm
+
 from fhirformer.data_preprocessing.encounter_dataset_builder import (
     EncounterDatasetBuilder,
 )
-from fhirformer.data_preprocessing.util import skip_build, load_datastore
-from tqdm import tqdm
-from multiprocessing import Pool
+from fhirformer.data_preprocessing.util import load_datastore, skip_build
 
 
 class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
@@ -56,35 +58,39 @@ class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
         pat_data = datastore.filter_patient(patient_id=patient_id)
 
         sample_list = []
-        if len(pat_data.enc) == 0 or len(pat_data.con) == 0:
-            return []
+        if (
+            len(pat_data.resources["encounter"]) == 0
+            or len(pat_data.resources["condition"]) == 0
+        ):
+            return sample_list
 
         patient_metadata_str = (
             f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
         )
 
-        for _, enc in pat_data.enc.iterrows():
+        for enc in pat_data.resources["encounter"].itertuples(index=False):
             resources_during_enc = pat_data.filter_patient(
                 patient_id=patient_id,
-                start_filter_date=enc["start"],
-                end_filter_date=enc["end"],
-            )
+                start_filter_date=enc.start,
+                end_filter_date=enc.end,
+            ).resources
             if len(resources_during_enc["imaging_study"]) == 0:
                 continue
 
-            duration = (enc["end"] - enc["start"]).days
+            duration = (enc.end - enc.start).days
             if duration <= 2:
                 continue
 
             # Condition corner
             # todo code_med_hauptdiagnose is now code or sth check ;)
+            # TODO: is it icd_code?
             con_label = (
                 resources_during_enc["condition"]
-                .loc[resources_during_enc["condition"]["code_med_hauptdiagnose"]]
+                .loc[resources_during_enc["condition"]["icd_code"]]
                 .reset_index(drop=True)
             )
 
-            assert len(con_label) == 1, "Only one hauptdiagnose per encounter allowed"
+            assert len(con_label) == 1, "Only one main diagnosis per encounter allowed"
 
             # Skip if no labels
             if not con_label:
@@ -106,7 +112,7 @@ class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
             sample_list.append(
                 {
                     "patient_id": str(patient_id),
-                    "encounter_id": str(enc["encounter_id"]),
+                    "encounter_id": str(enc.id),
                     "text": text,
                     "label": con_label.tolist(),
                 }
