@@ -1,7 +1,7 @@
-# import json
 import json
 import logging
 import os
+from functools import partial
 
 import numpy as np
 import torch
@@ -17,7 +17,6 @@ from transformers import (
     TrainingArguments,
 )
 
-import wandb
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
 
 logger = logging.getLogger(__name__)
@@ -33,10 +32,9 @@ class Pretrainer:
             if tokenizer
             else AutoTokenizer.from_pretrained(config["model_checkpoint"])
         )
-        self.train_texts, self.val_texts = self.get_text(num_samples=None)
         self.model_best_path = config["model_dir"] / "best"
         self.model_best_path.mkdir(parents=True, exist_ok=True)
-        self.wandb_project_name = "fhirformer_pretrain"
+        self.wandb_project_name = "fhirformer_" + config["task"]
 
     def compute_metrics(self, eval_pred: EvalPrediction):
         batch_size = 1 * self.config["eval_accumulation_steps"]
@@ -70,63 +68,62 @@ class Pretrainer:
         perplexity /= num_batches
         return {"perplexity": perplexity.item()}
 
-    def get_text(self, num_samples=None):
-        with open(self.config["task_dir"] / "train.json", "r") as f:
+    def get_text(self, phase: str):
+        num_samples = None
+        if self.config["debug"]:
+            num_samples = 100
+        with open(self.config["task_dir"] / f"{phase}.json", "r") as f:
             train_texts = json.load(f)[:num_samples] if num_samples else json.load(f)
-        with open(self.config["task_dir"] / "test.json", "r") as f:
-            val_texts = json.load(f)[:num_samples] if num_samples else json.load(f)
-        return train_texts, val_texts
+        return train_texts
 
-    def data_generator_train(self):
-        for text in self.train_texts:
+    def data_generator(self, phase: str):
+        for text in self.get_text(phase):
             yield {"text": text["text"]}
 
-    def data_generator_val(self):
-        for text in self.val_texts:
-            yield {"text": text["text"]}
+    def tokenize(self, dataset):
+        return dataset.map(
+            lambda examples: self.tokenizer(
+                examples["text"],
+                truncation=True,
+                padding="max_length",
+                max_length=None,  # , return_tensors="pt"
+            )
+        )
+
+    def get_samples_dataset(self, phase: str):
+        return HFDataset.from_generator(
+            partial(self.data_generator, phase),
+            cache_dir=self.config["task_dir"] / "hf_cache",
+        )
+
+    def get_document_dataset(self):
+        from fhirformer.data_preprocessing.document_dataset import DocumentDataset
+
+        ds = DocumentDataset(
+            config_name=self.config["task"],
+            data_dir=self.config["task_dir"] / "doc_data",
+            document_folder=self.config["data_dir"] / "documents",
+            task_folder=self.config["task_dir"],
+        )
+        ds.download_and_prepare(output_dir=self.config["task_dir"] / "doc_data")
+        data = ds.as_dataset()
+        train_dataset = data["train"]
+        test_dataset = data["test"]
+        logger.info(f"train {len(train_dataset)}, test {len(test_dataset)}")
+        return train_dataset, test_dataset
+
+    @staticmethod
+    def unite_datasets(fhir_dataset, doc_dataset):
+        if fhir_dataset is not None and doc_dataset is not None:
+            return fhir_dataset.concatenate(doc_dataset)
+        elif fhir_dataset is not None:
+            return fhir_dataset
+        elif doc_dataset is not None:
+            return doc_dataset
+        else:
+            raise ValueError("No dataset found")
 
     def pretrain(self, num_train_epochs=2):
-        logger.info("Starting pre-training...")
-        wandb.init(
-            tags=["baseline"],
-            project=self.wandb_project_name,
-            name=f"{self.config['model_name']}_{num_train_epochs}",
-            mode="online",
-            entity="ship-ai-autopilot",
-        )
-        wandb.run.log_code(".")
-
-        # Create the model
-        model = AutoModelForMaskedLM.from_pretrained(self.model_name)
-
-        raw_dataset = HFDataset.from_generator(self.data_generator_train)
-        train_dataset = raw_dataset.map(
-            lambda examples: self.tokenizer(
-                examples["text"],
-                truncation=True,
-                padding="max_length",
-                max_length=None,  # , return_tensors="pt"
-            )
-        )
-
-        raw_dataset = HFDataset.from_generator(self.data_generator_val)
-        val_dataset = raw_dataset.map(
-            lambda examples: self.tokenizer(
-                examples["text"],
-                truncation=True,
-                padding="max_length",
-                max_length=None,  # , return_tensors="pt"
-            )
-        )
-
-        logger.info(f"Total samples: {len(train_dataset)+len(val_dataset)}")
-
-        # Define data collator
-        data_collator = DataCollatorForLanguageModeling(
-            tokenizer=self.tokenizer, mlm=True, mlm_probability=0.15
-        )
-
-        # Define the training arguments
         training_args = TrainingArguments(
             output_dir=self.config["model_dir"],
             overwrite_output_dir=True,
@@ -137,13 +134,43 @@ class Pretrainer:
             load_best_model_at_end=True,
             eval_accumulation_steps=self.config["eval_accumulation_steps"],  # tune
             report_to="wandb",
-            # report_to="none",
             evaluation_strategy="epoch",
             save_strategy=IntervalStrategy.EPOCH,
-            fp16=False,
+            fp16=True,
             metric_for_best_model="loss",
             greater_is_better=False,
         )
+
+        with training_args.main_process_first(desc="Create Dataset"):
+            fhir_train_dataset, fhir_val_dataset, doc_train_dataset, doc_val_dataset = (
+                None,
+                None,
+                None,
+                None,
+            )
+            if "_fhir" in self.config["task"]:
+                fhir_train_dataset = self.get_samples_dataset("train")
+                fhir_val_dataset = self.get_samples_dataset("test")
+            if "_documents" in self.config["task"]:
+                doc_train_dataset, doc_val_dataset = self.get_document_dataset()
+
+            train_dataset = self.unite_datasets(fhir_train_dataset, doc_train_dataset)
+            val_dataset = self.unite_datasets(fhir_val_dataset, doc_val_dataset)
+
+            assert (
+                len(train_dataset) > 0
+            ), "Something went wrong with the generation of the samples."
+            logger.info(f"Total samples: {len(train_dataset)+len(val_dataset)}")
+
+            train_dataset = self.tokenize(train_dataset)
+            val_dataset = self.tokenize(val_dataset)
+            logger.info("Starting pre-training...")
+
+        # Define data collator
+        data_collator = DataCollatorForLanguageModeling(
+            tokenizer=self.tokenizer, mlm=True, mlm_probability=0.15
+        )
+        model = AutoModelForMaskedLM.from_pretrained(self.model_name)
 
         # Create the Trainer
         trainer = Trainer(
@@ -155,11 +182,8 @@ class Pretrainer:
             # compute_metrics=self.compute_metrics,
             callbacks=[TrainingLossLoggingCallback],
         )
-
-        # Train the model
+        torch.cuda.empty_cache()
         trainer.train()
-
-        # Save the model
         trainer.save_model(self.model_best_path)
 
 
@@ -167,5 +191,5 @@ def main(config):
     pretrainer = Pretrainer(config)
     # Usage example
     pretrainer.pretrain(
-        num_train_epochs=1000,
+        num_train_epochs=config["num_train_epochs"],
     )
