@@ -7,6 +7,7 @@ from typing import Optional
 import pandas as pd
 from tqdm import tqdm
 
+from fhirformer.data_preprocessing.constants import TUMOR_TYPE_MAP
 from fhirformer.fhir.util import (
     OUTPUT_FORMAT,
     check_and_read,
@@ -14,7 +15,6 @@ from fhirformer.fhir.util import (
     reduce_cardinality,
     store_df,
 )
-from fhirformer.data_preprocessing.constants import TUMOR_TYPE_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ class FHIRFilter:
             self.config["data_dir"]
             / (
                 "pretrain_patient_ids.pkl"
-                if self.config["task"] == "pretrain"
+                if "pretrain" in self.config["task"]
                 else "downstream_patient_ids.pkl"
             )
         )
