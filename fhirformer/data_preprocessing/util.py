@@ -18,20 +18,25 @@ def load_datastore(datastore_path: Path):
 def get_train_val_split(
     patient_ids: List[str], sample_by_letter: List[str] = None, split_ratio: float = 0.8
 ) -> tuple:
-    if sample_by_letter is not None:
-        patient_ids = list(set(patient_ids))
+    patient_ids = list(set(patient_ids))
+    if sample_by_letter is None:
+        logger.info(f"Splitting the patients using {split_ratio} split ratio.")
         random.shuffle(patient_ids)
         # Split patient IDs into train and validation sets
         split_index = int(split_ratio * len(patient_ids))
         return patient_ids[:split_index], patient_ids[split_index:]
     else:
+        logger.info(
+            f"Splitting the patients using {sample_by_letter}. "
+            f"The patients starting with these characters will be in the validation set."
+        )
         train_patients = filter(
             patient_ids,
-            lambda x: any(x.startswith(letter) for letter in sample_by_letter),
+            lambda x: not any(x.startswith(letter) for letter in sample_by_letter),
         )
         val_patients = filter(
             patient_ids,
-            lambda x: not any(x.startswith(letter) for letter in sample_by_letter),
+            lambda x: any(x.startswith(letter) for letter in sample_by_letter),
         )
 
         percent_train = len(train_patients) / len(patient_ids)
