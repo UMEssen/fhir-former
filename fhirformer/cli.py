@@ -148,7 +148,6 @@ def run():
         / config["model_name"]
         / datetime.now().strftime("%Y%m%d_%H_%M")
     )
-    config["model_dir"].mkdir(parents=True, exist_ok=True)
 
     logger.info(f"The outputs will be stored in {config['task_dir']}.")
 

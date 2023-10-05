@@ -123,7 +123,7 @@ class DownstreamTask:
 
     def train(self) -> None:
         training_args = TrainingArguments(**self.training_arguments)
-
+        self.model_best_path.mkdir(parents=True, exist_ok=True)
         with training_args.main_process_first(desc="Create Dataset"):
             init_wandb(self.config)
 
@@ -141,5 +141,4 @@ class DownstreamTask:
         )
 
         trainer.train()
-
         trainer.save_model(self.model_best_path)
