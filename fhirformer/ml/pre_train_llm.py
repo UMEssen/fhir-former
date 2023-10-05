@@ -34,7 +34,6 @@ class Pretrainer:
         )
         self.model_best_path = config["model_dir"] / "best"
         self.model_best_path.mkdir(parents=True, exist_ok=True)
-        self.wandb_project_name = "fhirformer_" + config["task"]
 
     def compute_metrics(self, eval_pred: EvalPrediction):
         batch_size = 1 * self.config["eval_accumulation_steps"]
