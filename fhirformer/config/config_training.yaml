@@ -12,6 +12,7 @@ root_dir: "/data"
 num_train_epochs: 1000
 load_from_file: False
 truncation: True
+model_checkpoint: "severinsimmler/xlm-roberta-longformer-base-16384"
 
 # Enforce run and not read cache
 rerun_cache: False

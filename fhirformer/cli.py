@@ -83,7 +83,7 @@ def parse_args_local(config) -> argparse.Namespace:
     parser.add_argument(
         "--model_checkpoint",
         type=str,
-        default="LennartKeller/longformer-gottbert-base-8192-aw512",
+        default=config["model_checkpoint"],
         help="Path to trained model or huggingface model name as string",
     )
     parser.add_argument(
