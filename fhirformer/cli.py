@@ -201,6 +201,8 @@ def run():
     with (config["task_dir"] / "config.pkl").open("wb") as of:
         pickle.dump(config, of)
 
+    assert config["task"] in pipelines, f"Task {config['task']} not found."
+
     if "sampling" in config["step"] and is_main_process():
         pipelines[config["task"]]["generate"](config)
 
