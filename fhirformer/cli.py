@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import pickle
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,38 @@ from fhirformer.data_preprocessing import (
 from fhirformer.fhir import FHIRExtractor, FHIRFilter, FHIRValidator
 from fhirformer.helper.util import get_nondependent_resources, name_from_model, timed
 from fhirformer.ml import ds_multi_label, ds_single_label, pre_train_llm
+
+pipelines = {
+    "ds_icd": {
+        "generate": generate_ds_icd_samples.main,
+        "train": ds_multi_label.main,
+    },
+    "ds_image": {
+        "generate": generate_ds_image_samples.main,
+        "train": ds_multi_label.main,
+    },
+    "ds_readmission": {
+        "generate": generate_ds_readmission_samples.main,
+        "train": ds_single_label.main,
+    },
+    "ds_main_icd": {
+        "generate": generate_ds_main_icd.main,
+        "train": ds_single_label.main,
+    },
+    "pretrain_fhir_documents": {
+        "generate": generate_pre_train_samples.main,
+        "train": pre_train_llm.main,
+    },
+    "pretrain_fhir": {
+        "generate": generate_pre_train_samples.main,
+        "train": pre_train_llm.main,
+    },
+    "pretrain_documents": {
+        "generate": lambda x: x,
+        "train": pre_train_llm.main,
+    },
+}
+
 
 # Set up logging
 LOG_LEVEL = logging.INFO
@@ -35,11 +68,8 @@ def load_config(file_path: str = "fhirformer/config/config_training.yaml"):
     return yaml.safe_load((Path.cwd() / file_path).open())
 
 
-# Pipeline functions
-@timed
-def run_pipeline(*tasks, config=None):
-    for task in tasks:
-        task(config)
+def is_main_process():
+    return "LOCAL_RANK" not in os.environ or int(os.environ["LOCAL_RANK"]) == 0
 
 
 @timed
@@ -53,9 +83,9 @@ def build_cache(config):
 
     non_dependent_resources = get_nondependent_resources(config)
 
-    dependent_resources = sorted(
-        ["encounter", "patient"]
-    )  # todo think about merging encounters with based basedon Encounter/95e3c9cb3f4b5bd691b9a426096506c44ce070cd63d8643fe572ab7c5d844c2a
+    # TODO: think about merging encounters with based basedon
+    #  Encounter/95e3c9cb3f4b5bd691b9a426096506c44ce070cd63d8643fe572ab7c5d844c2a
+    dependent_resources = sorted(["encounter", "patient"])
     # dependent_resources = []
     logger.info(
         f"The following resources will be computed: "
@@ -113,6 +143,12 @@ def parse_args_local(config) -> argparse.Namespace:
         action="store_true",
         default=config["download_documents"],
     )
+    parser.add_argument(
+        "--step",
+        default=config["step"],
+        help="Plus separated list steps to run. Valid options: data, sampling, train, all.",
+    )
+
     return parser.parse_args()
 
 
@@ -148,54 +184,24 @@ def run():
         / config["model_name"]
         / datetime.now().strftime("%Y%m%d_%H_%M")
     )
-
+    config["task_dir"].mkdir(parents=True, exist_ok=True)
     logger.info(f"The outputs will be stored in {config['task_dir']}.")
 
-    build_cache(config)
+    if config["step"] == "all":
+        config["step"] = "data+sampling+train"
+    config["step"] = config["step"].split("+")
 
-    if config["download_documents"]:
-        exit()
+    if "data" in config["step"] and is_main_process():
+        build_cache(config)
+
+        if config["download_documents"]:
+            exit()
 
     with (config["task_dir"] / "config.pkl").open("wb") as of:
         pickle.dump(config, of)
 
-    if args.task == "ds_icd":  # expanding labels per encounter
-        # todo debug generate_ds_icd_samples.main
-        run_pipeline(
-            generate_ds_icd_samples.main,
-            ds_multi_label.main,
-            config=config,
-        )
-    elif args.task == "ds_image":
-        # todo train some more
-        run_pipeline(
-            generate_ds_image_samples.main,
-            ds_multi_label.main,
-            config=config,
-        )
-    elif args.task == "ds_readmission":
-        run_pipeline(
-            generate_ds_readmission_samples.main,
-            ds_single_label.main,
-            config=config,
-        )
-    elif args.task == "ds_main_icd":
-        # todo debug ds_main_diag_samples.main + create ds_single_label.main for generic training with single label
-        run_pipeline(
-            generate_ds_main_icd.main,
-            ds_single_label.main,
-            config=config,
-        )
-    elif args.task in {"pretrain_fhir_documents", "pretrain_fhir"}:
-        run_pipeline(
-            generate_pre_train_samples.main,
-            pre_train_llm.main,
-            config=config,
-        )
-    elif args.task == "pretrain_documents":
-        run_pipeline(
-            pre_train_llm.main,
-            config=config,
-        )
-    else:
-        raise ValueError(f"Task {args.task} not recognized")
+    if "sampling" in config["step"] and is_main_process():
+        pipelines[config["task"]]["generate"](config)
+
+    if "train" in config["step"]:
+        pipelines[config["task"]]["train"](config)
