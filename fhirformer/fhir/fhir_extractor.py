@@ -139,6 +139,8 @@ class FHIRExtractor:
               lower("birthDate")::timestamp AS birth_date,
               fhirql_read_codes(gender) AS sex,
               fhirql_read_codes(c.code) AS insurance_type,
+              "deceasedBoolean" as deceased_flag,
+              lower("deceasedDateTime")::timestamp AS deceased_date,
               ARRAY_AGG(replace(pl.reference, 'Patient/', '')) AS other_list
             FROM patient p
             LEFT JOIN patient_link_other pl ON p._id = pl._resource
