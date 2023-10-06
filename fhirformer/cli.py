@@ -125,7 +125,6 @@ def parse_args_local(config) -> argparse.Namespace:
         "--task",
         type=str,
         default=config["task"],
-        required=True,
     )
     # TODO: Currently not used, we only do training
     parser.add_argument(
