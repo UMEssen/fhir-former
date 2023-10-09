@@ -17,6 +17,7 @@ class SingleLabelDataset(PatientEncounterDataset):
         super().__init__(config, max_length, num_samples)
         self.lb = LabelBinarizer()
         self.labels = self.lb.fit_transform([item["labels"] for item in self.data])
+        self.num_classes = 2
 
         icds = [item["labels"] for item in self.data]
         # Create a mapping of unique root ICD-10 codes to integers
@@ -52,7 +53,7 @@ class SingleLabelTrainer(DownstreamTask):
         super().__init__(
             config=config,
             dataset_class=SingleLabelDataset,
-            dataset_args={"max_length": None, "num_samples": None},
+            dataset_args={"config": config, "max_length": None, "num_samples": None},
             model_checkpoint=model_checkpoint,
             batch_size=batch_size,
             epochs=epochs,
@@ -138,9 +139,9 @@ class SingleLabelTrainer(DownstreamTask):
 
 @timed
 def main(config):
-    ds_icd_main = SingleLabelTrainer(
+    single_label = SingleLabelTrainer(
         config,
         config["model_checkpoint"],
         epochs=config["num_train_epochs"],
     )
-    ds_icd_main.train()
+    single_label.train()
