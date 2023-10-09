@@ -106,6 +106,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     start_filter_date=date,
                     end_filter_date=enc.end,
                     target_resource="condition",
+                    end_inclusive=False,
                 ).resources["condition"]
 
                 # TODO: make sure that there we have new conditions compared to the last sample
@@ -127,7 +128,8 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
 
                 resources_until_date = pat_data.filter_patient(
                     patient_id=patient_id,
-                    end_filter_date=date - pd.Timedelta(days=1),
+                    end_filter_date=date,
+                    end_inclusive=False,
                 ).resources
                 pat_hist = self.pat_history_to_string(resources_until_date)
 

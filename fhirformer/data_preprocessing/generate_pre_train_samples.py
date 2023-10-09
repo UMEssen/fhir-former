@@ -77,6 +77,7 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
                 patient_id=patient_id,
                 start_filter_date=enc.start,
                 end_filter_date=enc.end,
+                end_inclusive=True,
             ).resources
 
             pat_hist = self.pat_history_to_string(

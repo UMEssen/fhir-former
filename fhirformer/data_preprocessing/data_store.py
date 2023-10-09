@@ -1,9 +1,10 @@
+import logging
 import traceback
 from dataclasses import dataclass
-import pandas as pd
 from typing import Dict, List
+
+import pandas as pd
 from pandas._libs.tslibs.np_datetime import OutOfBoundsDatetime
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,8 @@ def select_resources(
     patient_id: str,
     start_filter_date=None,
     end_filter_date=None,
+    start_inclusive: bool = True,
+    end_inclusive: bool = False,
 ):
     if len(resource_df) == 0:
         return resource_df
@@ -47,11 +50,19 @@ def select_resources(
 
         if start_filter_date:
             start_filter_date = make_timezone_aware(start_filter_date)
-            resource_for_patient &= resource_tz_column >= start_filter_date
+            resource_for_patient &= (
+                resource_tz_column >= start_filter_date
+                if start_inclusive
+                else resource_tz_column > start_filter_date
+            )
 
         if end_filter_date:
             end_filter_date = make_timezone_aware(end_filter_date)
-            resource_for_patient &= resource_tz_column <= end_filter_date
+            resource_for_patient &= (
+                resource_tz_column <= end_filter_date
+                if end_inclusive
+                else resource_tz_column < end_filter_date
+            )
         return resource_df.loc[resource_for_patient]
 
     except OutOfBoundsDatetime:
@@ -79,6 +90,8 @@ class DataStore:
         start_filter_date=None,
         end_filter_date=None,
         target_resource=None,
+        end_inclusive: bool = False,
+        start_inclusive: bool = True,
     ):
         filtered_patient = self.patient_df[self.patient_df.patient_id == patient_id]
 
@@ -95,6 +108,8 @@ class DataStore:
                     patient_id=patient_id,
                     start_filter_date=start_filter_date,
                     end_filter_date=end_filter_date,
+                    start_inclusive=start_inclusive,
+                    end_inclusive=end_inclusive,
                 )
             }
         else:
@@ -105,6 +120,8 @@ class DataStore:
                     patient_id=patient_id,
                     start_filter_date=start_filter_date,
                     end_filter_date=end_filter_date,
+                    start_inclusive=start_inclusive,
+                    end_inclusive=end_inclusive,
                 )
                 for resource_name, resource_df in self.resources.items()
             }

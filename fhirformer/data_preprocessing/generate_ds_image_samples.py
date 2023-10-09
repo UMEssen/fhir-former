@@ -75,6 +75,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 start_filter_date=enc.start,
                 end_filter_date=enc.end,
                 target_resource="imaging_study",
+                end_inclusive=False,
             )
             if len(imaging_study_during_enc.resources["imaging_study"]) == 0:
                 continue
@@ -100,7 +101,9 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
 
                 # Get data before the beginning of this particular encounter
                 resources_before_enc = pat_data.filter_patient(
-                    patient_id=patient_id, end_filter_date=enc.start
+                    patient_id=patient_id,
+                    end_filter_date=enc.start,
+                    end_inclusive=False,
                 ).resources
 
                 tumor_string = self.get_tumors(resources_before_enc["episode_of_care"])
