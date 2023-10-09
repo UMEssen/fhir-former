@@ -73,6 +73,7 @@ class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
                 patient_id=patient_id,
                 start_filter_date=enc.start,
                 end_filter_date=enc.end,
+                end_inclusive=True,
             ).resources
             if len(resources_during_enc["imaging_study"]) == 0:
                 continue
@@ -84,6 +85,7 @@ class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
             # Condition corner
             # todo code_med_hauptdiagnose is now code or sth check ;)
             # TODO: is it icd_code?
+            # TODO: What resources do we use for predicting? Everything but encounter?
             raise NotImplementedError("Fix todos before running this!")
             con_label = (
                 resources_during_enc["condition"]

@@ -66,6 +66,8 @@ class ReadmissionDatasetBuilder(EncounterDatasetBuilder):
                 start_filter_date=enc.end,
                 end_filter_date=enc.end + timedelta(days=30),
                 target_resource="encounter",
+                start_inclusive=False,
+                end_inclusive=True,
             ).resources["encounter"]
             if len(readmission) == 0:
                 labels = 0
@@ -73,7 +75,9 @@ class ReadmissionDatasetBuilder(EncounterDatasetBuilder):
                 labels = 1
             # Get data before the end of this particular encounter
             resources_before_end = pat_data.filter_patient(
-                patient_id=patient_id, end_filter_date=enc.end
+                patient_id=patient_id,
+                end_filter_date=enc.end,
+                end_inclusive=True,
             ).resources
 
             tumor_string = self.get_tumors(resources_before_end["episode_of_care"])
