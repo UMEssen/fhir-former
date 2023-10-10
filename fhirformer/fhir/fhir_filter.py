@@ -176,7 +176,9 @@ class FHIRFilter:
 
         if not is_patient_df:
             joined.drop(
-                labels=["insurance_type", "birth_date", "sex"], axis=1, inplace=True
+                labels=["insurance_type", "birth_date", "sex", "deceased_date"],
+                axis=1,
+                inplace=True,
             )
 
         return joined
@@ -233,8 +235,7 @@ class FHIRFilter:
             .map({"PKV": "privat", "GKV": "gesetzlich"})
             .fillna("unbekannt")
         )
-
-        df = df[["patient_id", "sex", "insurance_type", "birth_date"]]
+        df.drop(columns=["original_patient_id"], inplace=True)
 
         store_df(df, output_path)
 
