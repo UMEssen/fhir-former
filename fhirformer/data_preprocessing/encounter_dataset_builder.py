@@ -237,7 +237,7 @@ class EncounterDatasetBuilder:
                     filtered_df = filtered_df[~filtered_df[main_col].isna()]
 
                 filtered_df.rename(columns={main_col: "date"}, inplace=True)
-                filtered_df.sort_values(by="date", inplace=True)
+                filtered_df.sort_values(by="date", ascending=False, inplace=True)
 
                 filtered_df["resource"] = resource
                 filtered_df["date"] = filtered_df["date"].dt.date
