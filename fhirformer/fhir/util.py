@@ -37,7 +37,7 @@ def group_meta_patients(group_by_tuple: Tuple[str, pd.DataFrame]) -> List[Dict]:
         )
     )
     rows = []
-    for row in ["birth_date", "insurance_type", "sex"]:
+    for row in ["birth_date", "deceased_date", "insurance_type", "sex"]:
         rows.append(
             list(
                 set(
@@ -46,7 +46,7 @@ def group_meta_patients(group_by_tuple: Tuple[str, pd.DataFrame]) -> List[Dict]:
                 )
             )
         )
-    birthdate, insurance_type, sex = rows
+    birthdate, deceased_date, insurance_type, sex = rows
     # Birthdate must be the same for all patients and must exist
     if len(birthdate) > 1:
         # TODO: Check if we want to keep the pats that have two dates that
@@ -55,6 +55,23 @@ def group_meta_patients(group_by_tuple: Tuple[str, pd.DataFrame]) -> List[Dict]:
         # print(f"{patient_ids}: {birthdate}, more than one date found!")
         return []
     assert len(birthdate) == 1, f"{patient_ids}: {birthdate}"
+    birthdate = pd.Timestamp(birthdate[0])
+    if len(deceased_date) == 1:
+        deceased_date = pd.Timestamp(deceased_date[0])
+    elif len(deceased_date) > 1:
+        b1 = pd.Timestamp(deceased_date[0])
+        for b2 in deceased_date[1:]:
+            offset = abs((b1 - pd.Timestamp(b2)).days)
+            # If any of the dates are more than 3 days apart, we assume that this is wrong
+            if offset > 3:
+                print(f"{patient_ids}: {deceased_date}, more than one date found!")
+                return []
+        deceased_date = b1
+    else:
+        deceased_date = None
+
+    if deceased_date is not None:
+        assert deceased_date >= birthdate, f"{patient_ids}: {deceased_date}"
     if "male" in sex and "female" in sex:
         final_sex = "unknown"
     elif "male" in sex:
@@ -68,9 +85,10 @@ def group_meta_patients(group_by_tuple: Tuple[str, pd.DataFrame]) -> List[Dict]:
         dict(
             patient_id=patient_id,
             linked_patient_id=",".join(sorted(patient_ids)),
-            birth_date=birthdate[0],
+            birth_date=birthdate,
             insurance_type=",".join(insurance_type),
             sex=final_sex,
+            deceased_date=deceased_date,
         )
         for patient_id in patient_ids
     ]

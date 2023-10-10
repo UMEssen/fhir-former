@@ -115,7 +115,7 @@ class ICD10MainDatasetBuilder(EncounterDatasetBuilder):
             sample_list.append(
                 {
                     "patient_id": str(patient_id),
-                    "encounter_id": str(enc.id),
+                    "encounter_id": enc.encounter_id,
                     "text": text,
                     "label": con_label.tolist(),
                 }

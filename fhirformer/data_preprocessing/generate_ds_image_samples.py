@@ -126,7 +126,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 sample_list.append(
                     {
                         "patient_id": str(patient_id),
-                        "encounter_id": enc.id,
+                        "encounter_id": enc.encounter_id,
                         "encounter_start_date": str(enc.start),
                         "text": text,
                         "labels": labels,
