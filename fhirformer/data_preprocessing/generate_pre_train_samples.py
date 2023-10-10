@@ -59,8 +59,6 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
             return []
 
         tumor_string = self.get_tumors(pat_data.resources["episode_of_care"])
-        if len(tumor_string) > 0:
-            tumor_string = f"Tumor history: {tumor_string}\n\n"
 
         patient_metadata_str = (
             f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"

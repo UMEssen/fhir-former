@@ -171,7 +171,11 @@ class EncounterDatasetBuilder:
                 tumor_str = row.treatment_program
             if tumor_str:
                 tumors.append(tumor_str)
-        return ", ".join(tumors)
+        combined = ", ".join(tumors)
+        if len(combined) > 0:
+            return f"Tumor history: {combined}\n\n"
+        else:
+            return ""
 
     def enc_to_string(self, enc: Any) -> str:
         enc_dict = {}

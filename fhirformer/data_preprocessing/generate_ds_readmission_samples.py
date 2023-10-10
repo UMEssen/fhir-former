@@ -81,8 +81,6 @@ class ReadmissionDatasetBuilder(EncounterDatasetBuilder):
             ).resources
 
             tumor_string = self.get_tumors(resources_before_end["episode_of_care"])
-            if len(tumor_string) > 0:
-                tumor_string = f"Tumor history: {tumor_string}\n\n"
 
             pat_hist = self.pat_history_to_string(resources_before_end)
 
