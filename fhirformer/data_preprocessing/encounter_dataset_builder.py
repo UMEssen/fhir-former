@@ -203,7 +203,7 @@ class EncounterDatasetBuilder:
         return filtered_df.rename(columns=columns_map)
 
     def pat_history_to_string(
-        self, pat_data: Dict, remove_duplicates: bool = False
+        self, pat_data: Dict, remove_duplicates: bool = True
     ) -> str:
         filtered_dfs = []
 
@@ -250,12 +250,6 @@ class EncounterDatasetBuilder:
         if all(df.empty for df in filtered_dfs):
             return ""
 
-        # if len(filtered_dfs) != len(
-        #     self.filtered_text_sampling_column_maps
-        # ):
-        #     print(pat_data)
-        #     return ""
-
         combined = pd.concat(filtered_dfs).reset_index(drop=True)
         combined.sort_values(by=["date", "resource"], inplace=True)
 
@@ -271,7 +265,7 @@ class EncounterDatasetBuilder:
         return (datetime.now() - pd.to_datetime(birth_date)).days // 365
 
     @staticmethod
-    def group_resources(df: pd.DataFrame, remove_duplicates: bool = False):
+    def group_resources(df: pd.DataFrame, remove_duplicates: bool = True):
         relevant_info = []
         for row_dict in df.to_dict(orient="records"):
             relevant_info.append(
@@ -286,7 +280,11 @@ class EncounterDatasetBuilder:
             )
 
         if remove_duplicates:
-            relevant_info = list(set(relevant_info))
+            relevant_counts = {x: relevant_info.count(x) for x in relevant_info}
+            relevant_info = [
+                relevant if count == 1 else f"{count}x {relevant}"
+                for relevant, count in relevant_counts.items()
+            ]
 
         date = df["date"].iloc[0]
         resource = df["resource"].iloc[0]
