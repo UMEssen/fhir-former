@@ -156,10 +156,9 @@ class FHIRExtractor:
             return
 
         pats = self.check_and_build_file("initial_patient")
-        pats["sex"] = reduce_cardinality(pats["sex"], set_to_none=True)
-        pats["insurance_type"] = reduce_cardinality(
-            pats["insurance_type"], set_to_none=True
-        )
+        for col in ["sex", "insurance_type", "deceased_date"]:
+            pats[col] = reduce_cardinality(pats[col], set_to_none=True)
+        pats.drop(columns=["deceased_flag"], inplace=True)
         pats = pats.explode("other_list")
         metas = pats[~pats["other_list"].isna()]
         union = pd.merge(
@@ -187,6 +186,7 @@ class FHIRExtractor:
                 "birth_date_meta",
                 "sex_meta",
                 "insurance_type_meta",
+                "deceased_date_meta",
             ],
             inplace=True,
         )
@@ -312,7 +312,8 @@ class FHIRExtractor:
             output_name="encounter_raw",
             # TODO: add encounter_id for being more consistent, have to change the samplers
             query=f"""
-            select e.id,
+            select
+            e.id as encounter_id,
             e._id as metrics_id,
             replace(e_sub.reference, 'Patient/', '') as patient_id,
             fhirql_read_codes(e_ind.system) as kind,
@@ -356,7 +357,8 @@ class FHIRExtractor:
         enc_filtered = self.check_and_build_file("encounter_raw")
 
         enc_filtered.drop_duplicates(
-            subset=["id", "metrics_id", "type_code", "v3_act_code"], inplace=True
+            subset=["encounter_id", "metrics_id", "type_code", "v3_act_code"],
+            inplace=True,
         )
 
         enc_filtered["kind"] = enc_filtered["kind"].apply(lambda x: x[0] if x else None)
@@ -642,7 +644,7 @@ class FHIRExtractor:
             time_attribute_name="date",
             request_params={"_sort": "-date"},
             fhir_paths=[
-                "id",
+                ("observation_id", "id"),
                 "effectiveDateTime",
                 ("patient_id", "subject.reference.replace('Patient/', '')"),
                 ("encounter_id", "encounter.reference.replace('Encounter/', '')"),
