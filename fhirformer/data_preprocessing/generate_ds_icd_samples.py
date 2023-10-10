@@ -75,31 +75,15 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
         )
 
         for enc in pat_data.resources["encounter"].itertuples(index=False):
-            # TODO: Why do we need this?
-            # resources_during_enc = pat_data.filter_patient(
-            #     patient_id=patient_id,
-            #     start_filter_date=enc.start,
-            #     end_filter_date=enc.end,
-            # ).resources
-            # if len(resources_during_enc["imaging_study"]) == 0:
-            #     continue
-
             duration = (enc.end - enc.start).days
             if duration <= 2:
                 continue
 
+            previous_labels = None
             # Generate multiple samples from each encounter
             for date in pd.date_range(
                 enc.start + pd.Timedelta(days=1), enc.end - pd.Timedelta(days=1)
             ):
-                # TODO: Why do we need this?
-                # resources_during_sample = pat_data.filter_patient(
-                #     patient_id=patient_id,
-                #     start_filter_date=enc.start,
-                #     end_filter_date=date,
-                # ).resources
-                # if len(resources_during_sample["condition"]) == 0:
-                #     continue
                 # From date on we take the conditions
                 condition_labels_df = pat_data.filter_patient(
                     patient_id=patient_id,
@@ -108,8 +92,6 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     target_resource="condition",
                     end_inclusive=False,
                 ).resources["condition"]
-
-                # TODO: make sure that there we have new conditions compared to the last sample
 
                 labels = (
                     condition_labels_df.loc[
@@ -126,6 +108,14 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                 if not labels:
                     continue
 
+                unique_labels = sorted(set([x.split(".")[0] for x in labels]))
+                if len(unique_labels) == 0:
+                    raise ValueError(f"No labels were generated for {labels}.")
+
+                # Only create a sample if we have new labels
+                if previous_labels == unique_labels:
+                    continue
+                previous_labels = unique_labels
                 resources_until_date = pat_data.filter_patient(
                     patient_id=patient_id,
                     end_filter_date=date,
@@ -144,15 +134,12 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     f"Patient journey:\n{pat_hist}"
                 )
 
-                unique_labels = list(set([x.split(".")[0] for x in labels]))
-                if len(unique_labels) == 0:
-                    raise ValueError(f"No labels were generated for {labels}.")
                 sample_list.append(
                     {
                         "patient_id": str(patient_id),
                         "encounter_id": enc.encounter_id,
                         "text": text,
-                        "labels": list(set([x.split(".")[0] for x in labels])),
+                        "labels": unique_labels,
                     }
                 )
 
