@@ -97,6 +97,9 @@ def build_cache(config):
         logger.info(f"Extracting {resource}...")
         extract.build(resource)
 
+    if config["task"] == "None":
+        logger.info("Skipping filtering and validation because task is none.")
+        return
     # filter patients needs to run first as we filter patients based on encounters patient_ids
     for resource in sorted(dependent_resources, reverse=True) + non_dependent_resources:
         logger.info(f"Filtering {resource}...")
