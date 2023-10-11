@@ -17,7 +17,7 @@ model_checkpoint: "severinsimmler/xlm-roberta-longformer-base-16384"
 
 # Enforce run and not read cache
 rerun_cache: False
-skip_validation: True
+skip_validation: False
 download_documents: False
 
 
