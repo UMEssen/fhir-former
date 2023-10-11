@@ -11,6 +11,8 @@ step: "all"
 
 # Training params
 num_train_epochs: 250
+max_train_samples: None # 300000
+max_test_samples: None # 300000
 load_from_file: False
 truncation: "longest_first"
 model_checkpoint: "severinsimmler/xlm-roberta-longformer-base-16384"

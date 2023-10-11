@@ -1,4 +1,5 @@
 import logging
+import random
 from pathlib import Path
 from typing import Any, Generator, List
 
@@ -23,11 +24,15 @@ class DocumentConfig(datasets.BuilderConfig):
         self,
         document_folder: Path,
         task_folder: Path,
+        max_train_samples: int = None,
+        max_test_samples: int = None,
         **kwargs: Any,
     ) -> None:
         super(DocumentConfig, self).__init__(**kwargs)
         self.document_folder = document_folder
         self.task_folder = task_folder
+        self.max_train_samples = max_train_samples
+        self.max_test_samples = max_test_samples
 
 
 class DocumentDataset(datasets.GeneratorBasedBuilder):
@@ -101,15 +106,21 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
             datasets.SplitGenerator(
                 name=datasets.Split.TRAIN,
                 gen_kwargs={
-                    relevant_column: train_df_dict[relevant_column]
-                    for relevant_column in self.RELEVANT_COLUMNS
+                    "max_samples": self.config.max_train_samples,
+                    **{
+                        relevant_column: train_df_dict[relevant_column]
+                        for relevant_column in self.RELEVANT_COLUMNS
+                    },
                 },
             ),
             datasets.SplitGenerator(
                 name=datasets.Split.TEST,
                 gen_kwargs={
-                    relevant_column: val_df_dict[relevant_column]
-                    for relevant_column in self.RELEVANT_COLUMNS
+                    "max_samples": self.config.max_test_samples,
+                    **{
+                        relevant_column: val_df_dict[relevant_column]
+                        for relevant_column in self.RELEVANT_COLUMNS
+                    },
                 },
             ),
         ]
@@ -121,9 +132,21 @@ class DocumentDataset(datasets.GeneratorBasedBuilder):
         original_category_display: List[List[str]],
         patient_id: List[str],
         date: List[str],
+        max_samples: int = None,
     ) -> Generator:
         logger.info(f"Generating splits for {len(diagnostic_report_id)} documents.")
-        for i, document_name in enumerate(diagnostic_report_id):
+        random.seed(42)
+        if max_samples is not None:
+            iter_indices = random.sample(
+                range(0, len(diagnostic_report_id)), max_samples
+            )
+        else:
+            iter_indices = range(0, len(diagnostic_report_id))
+        logger.info(
+            f"Generating samples for {len(iter_indices)} documents out of {len(diagnostic_report_id)}."
+        )
+        for i in iter_indices:
+            document_name = diagnostic_report_id[i]
             category_name = get_category_name(original_category_display[i])
             document_path = get_document_path(
                 root_path=self.config.document_folder / category_name,

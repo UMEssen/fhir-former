@@ -4,9 +4,14 @@ import shutil
 import time
 from pathlib import Path
 from typing import Tuple, Union
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def is_main_process():
+    return "LOCAL_RANK" not in os.environ or int(os.environ["LOCAL_RANK"]) == 0
 
 
 # Time decorator for function execution time measurement

@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 import pickle
 from datetime import datetime
 from pathlib import Path
@@ -15,7 +14,12 @@ from fhirformer.data_preprocessing import (
     generate_pre_train_samples,
 )
 from fhirformer.fhir import FHIRExtractor, FHIRFilter, FHIRValidator
-from fhirformer.helper.util import get_nondependent_resources, name_from_model, timed
+from fhirformer.helper.util import (
+    get_nondependent_resources,
+    is_main_process,
+    name_from_model,
+    timed,
+)
 from fhirformer.ml import ds_multi_label, ds_single_label, pre_train_llm
 
 pipelines = {
@@ -66,10 +70,6 @@ logger = logging.getLogger(__name__)
 # Load config file
 def load_config(file_path: str = "fhirformer/config/config_training.yaml"):
     return yaml.safe_load((Path.cwd() / file_path).open())
-
-
-def is_main_process():
-    return "LOCAL_RANK" not in os.environ or int(os.environ["LOCAL_RANK"]) == 0
 
 
 @timed
