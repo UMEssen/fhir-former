@@ -1,11 +1,9 @@
 import json
 import logging
 import os
-from functools import partial
 
 import numpy as np
 import torch
-from datasets import Dataset as HFDataset
 from torch.nn import functional as F
 from transformers import (
     AutoModelForMaskedLM,
@@ -17,6 +15,7 @@ from transformers import (
     TrainingArguments,
 )
 
+from fhirformer.helper.util import is_main_process
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
 from fhirformer.ml.util import init_wandb
 
@@ -80,20 +79,37 @@ class Pretrainer:
             yield {"text": text["text"]}
 
     def tokenize(self, dataset):
+        (self.config["task_dir"] / "map_cache").mkdir(parents=True, exist_ok=True)
         return dataset.map(
             lambda examples: self.tokenizer(
                 examples["text"],
                 truncation=self.config["truncation"],
                 padding="max_length",
                 max_length=None,  # , return_tensors="pt"
-            )
+            ),
+            cache_file_name=str(
+                self.config["task_dir"]
+                / "map_cache"
+                / f"{self.config['task']}_tokenized_{dataset.split}.arrow"
+            ),
         )
 
-    def get_samples_dataset(self, phase: str):
-        return HFDataset.from_generator(
-            partial(self.data_generator, phase),
-            cache_dir=self.config["task_dir"] / "hf_cache",
+    def get_fhir_dataset(self):
+        from fhirformer.data_preprocessing.fhir_dataset import FHIRDataset
+
+        ds = FHIRDataset(
+            config_name=self.config["task"],
+            data_dir=self.config["task_dir"] / "fhir_data",
+            task_folder=self.config["task_dir"],
+            max_train_samples=self.config["max_train_samples"],
+            max_test_samples=self.config["max_test_samples"],
         )
+        ds.download_and_prepare(output_dir=self.config["task_dir"] / "fhir_data")
+        data = ds.as_dataset()
+        train_dataset = data["train"]
+        test_dataset = data["test"]
+        logger.info(f"train {len(train_dataset)}, test {len(test_dataset)}")
+        return train_dataset, test_dataset
 
     def get_document_dataset(self):
         from fhirformer.data_preprocessing.document_dataset import DocumentDataset
@@ -103,6 +119,8 @@ class Pretrainer:
             data_dir=self.config["task_dir"] / "doc_data",
             document_folder=self.config["data_dir"] / "documents",
             task_folder=self.config["task_dir"],
+            max_train_samples=self.config["max_train_samples"],
+            max_test_samples=self.config["max_test_samples"],
         )
         ds.download_and_prepare(output_dir=self.config["task_dir"] / "doc_data")
         data = ds.as_dataset()
@@ -122,12 +140,34 @@ class Pretrainer:
         else:
             raise ValueError("No dataset found")
 
-    def pretrain(self, num_train_epochs=2):
+    def build_datasets(self):
+        fhir_train_dataset, fhir_val_dataset, doc_train_dataset, doc_val_dataset = (
+            None,
+            None,
+            None,
+            None,
+        )
+        if "_fhir" in self.config["task"]:
+            fhir_train_dataset, fhir_val_dataset = self.get_fhir_dataset()
+        if "_documents" in self.config["task"]:
+            doc_train_dataset, doc_val_dataset = self.get_document_dataset()
+
+        train_dataset = self.unite_datasets(fhir_train_dataset, doc_train_dataset)
+        val_dataset = self.unite_datasets(fhir_val_dataset, doc_val_dataset)
+
+        assert (
+            len(train_dataset) > 0
+        ), "Something went wrong with the generation of the samples."
+        logger.info(f"Total samples: {len(train_dataset) + len(val_dataset)}")
+
+        return self.tokenize(train_dataset), self.tokenize(val_dataset)
+
+    def pretrain(self):
         training_args = TrainingArguments(
             output_dir=self.config["model_dir"],
             overwrite_output_dir=True,
-            num_train_epochs=num_train_epochs,
-            per_device_train_batch_size=torch.cuda.device_count(),  # per device
+            num_train_epochs=self.config["num_train_epochs"],
+            per_device_train_batch_size=1,  # per device
             per_device_eval_batch_size=1,  # per device
             save_total_limit=2,
             load_best_model_at_end=True,
@@ -139,33 +179,18 @@ class Pretrainer:
             metric_for_best_model="loss",
             greater_is_better=False,
         )
+        # For some reason the main_process context manager does not work correctly for a lot of data
+        # So we first run it to make sure that a cache exists only with the main process
+        # and then we run it again for each process to just read the cache
+        if is_main_process():
+            _, _ = self.build_datasets()
+
+        train_dataset, val_dataset = self.build_datasets()
+
+        logger.info("Starting pre-training...")
+        init_wandb(self.config)
+
         self.model_best_path.mkdir(parents=True, exist_ok=True)
-
-        with training_args.main_process_first(desc="Create Dataset"):
-            fhir_train_dataset, fhir_val_dataset, doc_train_dataset, doc_val_dataset = (
-                None,
-                None,
-                None,
-                None,
-            )
-            if "_fhir" in self.config["task"]:
-                fhir_train_dataset = self.get_samples_dataset("train")
-                fhir_val_dataset = self.get_samples_dataset("test")
-            if "_documents" in self.config["task"]:
-                doc_train_dataset, doc_val_dataset = self.get_document_dataset()
-
-            train_dataset = self.unite_datasets(fhir_train_dataset, doc_train_dataset)
-            val_dataset = self.unite_datasets(fhir_val_dataset, doc_val_dataset)
-
-            assert (
-                len(train_dataset) > 0
-            ), "Something went wrong with the generation of the samples."
-            logger.info(f"Total samples: {len(train_dataset)+len(val_dataset)}")
-
-            train_dataset = self.tokenize(train_dataset)
-            val_dataset = self.tokenize(val_dataset)
-            logger.info("Starting pre-training...")
-            init_wandb(self.config)
 
         # Define data collator
         data_collator = DataCollatorForLanguageModeling(
@@ -191,6 +216,4 @@ class Pretrainer:
 def main(config):
     pretrainer = Pretrainer(config)
     # Usage example
-    pretrainer.pretrain(
-        num_train_epochs=config["num_train_epochs"],
-    )
+    pretrainer.pretrain()

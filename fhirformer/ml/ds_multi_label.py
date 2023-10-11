@@ -49,7 +49,11 @@ class MultiLabelTrainer(DownstreamTask):
         super().__init__(
             config=config,
             dataset_class=MultiLabelDataset,
-            dataset_args={"config": config, "max_length": None, "num_samples": None},
+            dataset_args={
+                "config": config,
+                "max_length": None,
+                "num_samples": self.config["max_train_samples"],
+            },
             model_checkpoint=model_checkpoint,
             batch_size=batch_size,
             epochs=epochs,
