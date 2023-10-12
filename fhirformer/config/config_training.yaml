@@ -5,12 +5,12 @@ debug: False
 # General params for setting the folders and the extraction
 start_datetime: "2018-01-01"
 end_datetime: "2023-01-01"
-run_id: "testing_30d"
+run_id: "2018-2023-v1"
 root_dir: "/data"
 step: "all"
 
 # Training params
-num_train_epochs: 10
+num_train_epochs: 100
 max_train_samples: null # 300000
 max_test_samples: null # 300000
 load_from_file: False
