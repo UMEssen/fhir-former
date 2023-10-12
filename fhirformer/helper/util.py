@@ -40,7 +40,9 @@ def get_nondependent_resources(config):
     return non_dependent_resources
 
 
-def name_from_model(model_name: Union[str, Path]) -> Tuple[str, bool]:
+def name_from_model(
+    model_name: Union[str, Path], roformer: bool = False
+) -> Tuple[str, bool]:
     if isinstance(model_name, Path):
         name = model_name.parent.name
         if not model_name.exists():
@@ -51,6 +53,8 @@ def name_from_model(model_name: Union[str, Path]) -> Tuple[str, bool]:
         load = True
     else:
         name = model_name.replace("/", "_")
+        if roformer:
+            name = "roformer_" + name
         load = False
     return name, load
 
