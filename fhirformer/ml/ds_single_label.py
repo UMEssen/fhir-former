@@ -70,11 +70,7 @@ class SingleLabelTrainer(DownstreamTask):
         self.model.config.problem_type = (
             "single_label_classification"  # specify problem type
         )
-
         self.model.loss = BCELoss()  # single class classification
-
-        labels = [label for label in self.train_dataset[0]["label_codes"]]
-        self.set_id_to_label(labels)
 
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred

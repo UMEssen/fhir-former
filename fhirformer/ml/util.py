@@ -8,7 +8,7 @@ def init_wandb(config):
         tags=["baseline"],
         project=config["task"],
         name=config["model_name"] + "_" + config["run_id"],
-        mode="online",
+        mode="disabled" if config["debug"] else "online",
         entity="ship-ai-autopilot",
         group="DDP",
     )
