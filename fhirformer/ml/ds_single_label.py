@@ -2,11 +2,11 @@ from typing import Dict, Union
 
 import numpy as np
 import torch
+import wandb
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.preprocessing import LabelBinarizer
 from torch.nn import BCELoss
 
-import wandb
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.patient_encounter_dataset import PatientEncounterDataset
@@ -18,6 +18,7 @@ class SingleLabelDataset(PatientEncounterDataset):
         self.lb = LabelBinarizer()
         self.labels = self.lb.fit_transform([item["labels"] for item in self.data])
         self.num_classes = 2
+        self.problem_type = "single_label_classification"
 
         icds = [item["labels"] for item in self.data]
         # Create a mapping of unique root ICD-10 codes to integers
@@ -60,16 +61,6 @@ class SingleLabelTrainer(DownstreamTask):
             train_ratio=train_ratio,
             prediction_cutoff=prediction_cutoff,
         )
-        label_freq = np.sum(
-            self.dataset.labels, axis=0
-        )  # sum over the column (each label)
-        self.top10_classes = label_freq.argsort()[-10:][
-            ::-1
-        ]  # find top 10 most common classes
-
-        self.model.config.problem_type = (
-            "single_label_classification"  # specify problem type
-        )
 
         self.model.loss = BCELoss()  # single class classification
 
@@ -109,20 +100,9 @@ class SingleLabelTrainer(DownstreamTask):
             macro_auc_pr = None
             micro_auc_pr = None
 
-        # Extract the top 10 labels and predictions
-        mask = np.isin(predictions, self.top10_classes)
-        labels_top10 = labels[mask]
-        predictions_top10 = predictions[mask]
-
         metrics = {}
         for metric, value in basic_metrics.items():
             metrics["eval_" + metric] = value
-
-        top_ten_metrics = self.metrics(
-            predictions=predictions_top10, labels=labels_top10
-        )
-        for metric, value in top_ten_metrics.items():
-            metrics["top10_" + metric] = value
 
         metrics["auc_roc"] = auc_roc
         metrics["macro_auc_pr"] = macro_auc_pr

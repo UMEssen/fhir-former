@@ -70,7 +70,9 @@ class DownstreamTask:
         logger.info(f"Total samples: {len(self.train_dataset)+len(self.val_dataset)}")
 
         self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_checkpoint, num_labels=self.dataset.num_classes
+            self.model_checkpoint,
+            num_labels=self.dataset.num_classes,
+            problem_type=self.dataset.problem_type,
         )
         self.training_arguments = dict(
             output_dir=self.config["model_dir"],

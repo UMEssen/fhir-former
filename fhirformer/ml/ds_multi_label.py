@@ -21,6 +21,7 @@ class MultiLabelDataset(PatientEncounterDataset):
         self.config = config
         self.mlb = MultiLabelBinarizer()
         self.labels = self.mlb.fit_transform(possible_labels)
+        self.problem_type = "multi_label_classification"
         self.num_classes = len(self.mlb.classes_)
 
     def __getitem__(self, idx) -> Dict[str, Union[int, str, torch.Tensor]]:
@@ -67,9 +68,6 @@ class MultiLabelTrainer(DownstreamTask):
             ::-1
         ]  # find top 10 most common classes
 
-        self.model.config.problem_type = (
-            "multi_label_classification"  # specify problem type
-        )
         self.model.loss = BCEWithLogitsLoss()  # specify loss function for multi-label
 
         labels = [label for label in self.train_dataset[0]["label_codes"]]
