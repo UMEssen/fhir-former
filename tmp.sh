@@ -1,1 +1,1 @@
-ds_readmission -> 30 d download
+python -m fhirformer --task ds_readmission --step train
