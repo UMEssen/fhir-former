@@ -94,7 +94,6 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                     for label in labels
                     if label in self.config["valid_procedure_codes"]
                 ]
-                labels = [item for sublist in labels for item in sublist]
 
                 if len(labels) == 0:
                     continue
@@ -106,8 +105,6 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                     end_inclusive=False,
                 ).resources
 
-                tumor_string = self.get_tumors(resources_before_enc["episode_of_care"])
-
                 pat_hist = self.pat_history_to_string(resources_before_enc)
 
                 if not pat_hist:
@@ -116,7 +113,6 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 text = (
                     f"{patient_metadata_str}"
                     f"Encounter:\n{self.enc_to_string(enc)}\n\n"
-                    f"{tumor_string}"
                     f"ICD Version: {self.get_icd_version(resources_before_enc['condition'])}\n\n"
                     f"Patient history:\n{pat_hist}"
                 )

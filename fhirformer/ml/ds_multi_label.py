@@ -52,7 +52,7 @@ class MultiLabelTrainer(DownstreamTask):
             dataset_args={
                 "config": config,
                 "max_length": None,
-                "num_samples": self.config["max_train_samples"],
+                "num_samples": config["max_train_samples"],
             },
             model_checkpoint=model_checkpoint,
             batch_size=batch_size,
@@ -109,6 +109,8 @@ class MultiLabelTrainer(DownstreamTask):
 @timed
 def main(config):
     ds_multi = MultiLabelTrainer(
-        config, config["model_checkpoint"], epochs=config["num_train_epochs"]
+        config=config,
+        model_checkpoint=config["model_checkpoint"],
+        epochs=config["num_train_epochs"],
     )
     ds_multi.train()
