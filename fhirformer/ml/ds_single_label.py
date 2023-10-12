@@ -61,7 +61,6 @@ class SingleLabelTrainer(DownstreamTask):
             train_ratio=train_ratio,
             prediction_cutoff=prediction_cutoff,
         )
-
         self.model.loss = BCELoss()  # single class classification
 
     def compute_metrics(self, eval_pred):
