@@ -254,7 +254,7 @@ class EncounterDatasetBuilder:
         combined = pd.concat(filtered_dfs).reset_index(drop=True)
         combined.sort_values(by=["date", "resource"], inplace=True, ascending=False)
 
-        result_list = combined.groupby(["date", "resource"]).apply(
+        result_list = combined.groupby(["date", "resource"], sort=False).apply(
             partial(self.group_resources, remove_duplicates=remove_duplicates)
         )
         all_resources_string = "\n".join(result_list)
