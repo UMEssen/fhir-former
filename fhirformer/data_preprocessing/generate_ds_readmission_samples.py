@@ -80,8 +80,6 @@ class ReadmissionDatasetBuilder(EncounterDatasetBuilder):
                 end_inclusive=True,
             ).resources
 
-            tumor_string = self.get_tumors(resources_before_end["episode_of_care"])
-
             pat_hist = self.pat_history_to_string(resources_before_end)
 
             if not pat_hist:
@@ -90,7 +88,6 @@ class ReadmissionDatasetBuilder(EncounterDatasetBuilder):
             text = (
                 f"{patient_metadata_str}"
                 f"Encounter:\n{self.enc_to_string(enc)}\n\n"
-                f"{tumor_string}"
                 f"ICD Version: {self.get_icd_version(resources_before_end['condition'])}\n\n"
                 f"Patient history:\n{pat_hist}"
             )

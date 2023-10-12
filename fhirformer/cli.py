@@ -128,6 +128,7 @@ def parse_args_local(config) -> argparse.Namespace:
         "--task",
         type=str,
         default=config["task"],
+        required=True,
     )
     # TODO: Currently not used, we only do training
     parser.add_argument(
@@ -165,12 +166,6 @@ def run():
             "WARNING!!! You are running fhirformer in debug mode, "
             "please change this when you are done testing."
         )
-
-    # if config["debug"]:
-    #     config["start_datetime"] = "2021-03-01"
-    #     config["end_datetime"] = "2021-03-30"
-    #     config["run_id"] = "testing_30d"
-    #     config.update(vars(args))
 
     config["root_dir"] = config["root_dir"] / config["run_id"]
     config["data_dir"] = config["root_dir"] / "data_raw"
