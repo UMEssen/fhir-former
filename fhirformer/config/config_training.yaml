@@ -10,7 +10,7 @@ root_dir: "/data"
 step: "all"
 
 # Training params
-num_train_epochs: 250
+num_train_epochs: 100
 max_train_samples: null # 300000
 max_test_samples: null # 300000
 load_from_file: False
