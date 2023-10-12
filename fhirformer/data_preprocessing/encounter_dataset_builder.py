@@ -327,6 +327,7 @@ class EncounterDatasetBuilder:
             logger.info(
                 f"For the task {self.config['task']}, no label attribute was found."
             )
+            return
         labels = [sample["labels"] for sample in samples]
         if isinstance(labels[0], list):
             logger.info(
