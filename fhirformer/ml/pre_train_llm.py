@@ -16,7 +16,7 @@ from transformers import (
     TrainingArguments,
 )
 
-from fhirformer.helper.util import is_main_process
+# from fhirformer.helper.util import is_main_process
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
 from fhirformer.ml.util import init_wandb
 
@@ -183,8 +183,8 @@ class Pretrainer:
         # For some reason the main_process context manager does not work correctly for a lot of data
         # So we first run it to make sure that a cache exists only with the main process
         # and then we run it again for each process to just read the cache
-        if is_main_process():
-            _, _ = self.build_datasets()
+        # if is_main_process():
+        #     _, _ = self.build_datasets()
 
         train_dataset, val_dataset = self.build_datasets()
 
