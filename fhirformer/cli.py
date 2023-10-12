@@ -195,7 +195,7 @@ def run():
         if config["download_documents"]:
             exit()
 
-    with (config["task_dir"] / "config.pkl").open("wb") as of:
+    with (config["task_dir"] / f"config_{config['step']}.pkl").open("wb") as of:
         pickle.dump(config, of)
 
     assert config["task"] in pipelines, f"Task {config['task']} not found."
