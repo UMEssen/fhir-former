@@ -187,6 +187,8 @@ def run():
 
     if config["step"] == "all":
         config["step"] = "data+sampling+train"
+
+    config_name = f"config_{config['step']}.pkl"
     config["step"] = config["step"].split("+")
 
     if "data" in config["step"] and is_main_process():
@@ -195,7 +197,7 @@ def run():
         if config["download_documents"]:
             exit()
 
-    with (config["task_dir"] / f"config_{config['step']}.pkl").open("wb") as of:
+    with (config["task_dir"] / config_name).open("wb") as of:
         pickle.dump(config, of)
 
     assert config["task"] in pipelines, f"Task {config['task']} not found."
