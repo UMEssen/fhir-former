@@ -101,16 +101,27 @@ class DownstreamTask:
 
     @staticmethod
     def metrics(predictions: np.ndarray, labels: np.ndarray):
+        zero_division = np.nan
         return {
             "accuracy": (predictions == labels).mean(),
-            "macro_precision": precision_score(labels, predictions, average="macro"),
-            "macro_recall": recall_score(labels, predictions, average="macro"),
-            "macro_f1": f1_score(labels, predictions, average="macro"),
-            "weighted_precision": precision_score(
-                labels, predictions, average="weighted"
+            "macro_precision": precision_score(
+                labels, predictions, average="macro", zero_division=zero_division
             ),
-            "weighted_recall": recall_score(labels, predictions, average="weighted"),
-            "weighted_f1": f1_score(labels, predictions, average="weighted"),
+            "macro_recall": recall_score(
+                labels, predictions, average="macro", zero_division=zero_division
+            ),
+            "macro_f1": f1_score(
+                labels, predictions, average="macro", zero_division=zero_division
+            ),
+            "weighted_precision": precision_score(
+                labels, predictions, average="weighted", zero_division=zero_division
+            ),
+            "weighted_recall": recall_score(
+                labels, predictions, average="weighted", zero_division=zero_division
+            ),
+            "weighted_f1": f1_score(
+                labels, predictions, average="weighted", zero_division=zero_division
+            ),
         }
 
     def compute_metrics(self, eval_pred):
