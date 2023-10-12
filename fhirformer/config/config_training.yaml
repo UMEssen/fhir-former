@@ -3,9 +3,13 @@ task: None
 debug: False
 
 # General params for setting the folders and the extraction
-start_datetime: "2018-01-01"
-end_datetime: "2023-01-01"
-run_id: "2018-2023-v1"
+# start_datetime: "2018-01-01"
+# end_datetime: "2023-01-01"
+# run_id: "2018-2023-v1"
+
+start_datetime: "2021-03-01"
+end_datetime: "2021-03-30"
+run_id: "testing_30d"
 root_dir: "/data"
 step: "all"
 

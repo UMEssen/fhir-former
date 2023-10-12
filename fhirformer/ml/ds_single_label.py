@@ -2,11 +2,11 @@ from typing import Dict, Union
 
 import numpy as np
 import torch
-import wandb
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.preprocessing import LabelBinarizer
 from torch.nn import BCELoss
 
+import wandb
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.patient_encounter_dataset import PatientEncounterDataset
@@ -63,9 +63,6 @@ class SingleLabelTrainer(DownstreamTask):
         )
 
         self.model.loss = BCELoss()  # single class classification
-
-        labels = [label for label in self.train_dataset[0]["label_codes"]]
-        self.set_id_to_label(labels)
 
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
