@@ -2,13 +2,20 @@ import json
 from typing import Dict, Union
 
 from torch.utils.data import Dataset
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, RoFormerTokenizerFast
 
 
 class PatientEncounterDataset(Dataset):
     def __init__(self, config, max_length=None, num_samples=None):
         self.config = config
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_checkpoint"])
+        if self.config["use_roformer"]:
+            self.tokenizer = RoFormerTokenizerFast.from_pretrained(
+                self.config["model_checkpoint"]
+            )
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.config["model_checkpoint"]
+            )
         with open(self.config["task_dir"] / "train.json", "r") as f:
             self.data = json.load(f)[:num_samples] if num_samples else json.load(f)
         self.max_length = max_length

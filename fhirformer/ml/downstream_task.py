@@ -9,6 +9,7 @@ from transformers import (
     AutoModelForSequenceClassification,
     EarlyStoppingCallback,
     IntervalStrategy,
+    RoFormerForSequenceClassification,
     Trainer,
     TrainingArguments,
 )
@@ -69,11 +70,18 @@ class DownstreamTask:
         )
         logger.info(f"Total samples: {len(self.train_dataset)+len(self.val_dataset)}")
 
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_checkpoint,
-            num_labels=self.dataset.num_classes,
-            problem_type=self.dataset.problem_type,
-        )
+        if self.config["use_roformer"]:
+            self.model = RoFormerForSequenceClassification.from_pretrained(
+                self.model_checkpoint,
+                num_labels=self.dataset.num_classes,
+                problem_type=self.dataset.problem_type,
+            )
+        else:
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                self.model_checkpoint,
+                num_labels=self.dataset.num_classes,
+                problem_type=self.dataset.problem_type,
+            )
         self.training_arguments = dict(
             output_dir=self.config["model_dir"],
             num_train_epochs=self.epochs,
