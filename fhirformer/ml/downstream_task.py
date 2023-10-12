@@ -98,13 +98,6 @@ class DownstreamTask:
         self.model.config.label2id = {val: i for i, val in enumerate(labels)}
 
     @staticmethod
-    def early_stopping_callback():
-        return EarlyStoppingCallback(
-            early_stopping_patience=5,  # Number of steps with no improvement after which training will be stopped
-            early_stopping_threshold=0.0,  # Minimum change in the monitored metric to be considered as an improvement
-        )
-
-    @staticmethod
     def metrics(predictions: np.ndarray, labels: np.ndarray):
         return {
             "accuracy": (predictions == labels).mean(),
@@ -136,7 +129,12 @@ class DownstreamTask:
             callbacks=[
                 TrainingLossLoggingCallback,
                 BestScoreLoggingCallback,
-                self.early_stopping_callback(),
+                EarlyStoppingCallback(
+                    early_stopping_patience=5,
+                    # Number of steps with no improvement after which training will be stopped
+                    early_stopping_threshold=0.0,
+                    # Minimum change in the monitored metric to be considered as an improvement
+                ),
             ],
         )
 
