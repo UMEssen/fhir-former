@@ -6,6 +6,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any, Dict, List
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -253,7 +254,7 @@ class EncounterDatasetBuilder:
         combined = pd.concat(filtered_dfs).reset_index(drop=True)
         combined.sort_values(by=["date", "resource"], inplace=True, ascending=False)
 
-        result_list = combined.groupby(["date", "resource"]).apply(
+        result_list = combined.groupby(["date", "resource"], sort=False).apply(
             partial(self.group_resources, remove_duplicates=remove_duplicates)
         )
         all_resources_string = "\n".join(result_list)
@@ -316,6 +317,32 @@ class EncounterDatasetBuilder:
 
         return train_samples, val_samples
 
+    def label_summary(
+        self,
+        samples: List[Dict],
+        additional_string: str = "",
+        stop_after: int = 20,
+    ) -> None:
+        if "labels" not in samples[0]:
+            logger.info(
+                f"For the task {self.config['task']}, no label attribute was found."
+            )
+        labels = [sample["labels"] for sample in samples]
+        if isinstance(labels[0], list):
+            logger.info(
+                f"Average number of labels per sample: {np.mean([len(x) for x in labels]):.2f}"
+            )
+            labels = [item for sublist in labels for item in sublist]
+
+        counts = list(pd.Series(labels).value_counts().to_dict().items())
+        logger.info(
+            f"Label counts {'(' + additional_string + ')' if additional_string else ''}"
+        )
+        if stop_after:
+            counts = counts[:stop_after]
+        for label, count in counts:
+            logger.info(f"{label}: {count}")
+
     def global_multiprocessing(self):
         """
         This is horrible, I know. This function will get repeated in all files, because of multiple reasons:
@@ -353,9 +380,13 @@ class EncounterDatasetBuilder:
             with open(all_samples_file, "r") as infile:
                 flat_sample_list = json.load(infile)
 
+        self.label_summary(flat_sample_list, "all")
+
         train_samples, val_samples = self.get_split_samples(
             flat_sample_list, split_ratio
         )
+        self.label_summary(train_samples, "train")
+        self.label_summary(val_samples, "val")
 
         # Save the training samples
         with open(self.config["task_dir"] / "train.json", "w") as outfile:

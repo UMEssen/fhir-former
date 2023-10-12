@@ -9,13 +9,14 @@ from transformers import (
     AutoModelForMaskedLM,
     AutoTokenizer,
     DataCollatorForLanguageModeling,
+    EarlyStoppingCallback,
     EvalPrediction,
     IntervalStrategy,
     Trainer,
     TrainingArguments,
 )
 
-from fhirformer.helper.util import is_main_process
+# from fhirformer.helper.util import is_main_process
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
 from fhirformer.ml.util import init_wandb
 
@@ -182,8 +183,8 @@ class Pretrainer:
         # For some reason the main_process context manager does not work correctly for a lot of data
         # So we first run it to make sure that a cache exists only with the main process
         # and then we run it again for each process to just read the cache
-        if is_main_process():
-            _, _ = self.build_datasets()
+        # if is_main_process():
+        #     _, _ = self.build_datasets()
 
         train_dataset, val_dataset = self.build_datasets()
 
@@ -205,8 +206,16 @@ class Pretrainer:
             data_collator=data_collator,
             train_dataset=train_dataset,
             eval_dataset=val_dataset if val_dataset else None,
-            # compute_metrics=self.compute_metrics,
-            callbacks=[TrainingLossLoggingCallback],
+            compute_metrics=self.compute_metrics,
+            callbacks=[
+                TrainingLossLoggingCallback,
+                EarlyStoppingCallback(
+                    early_stopping_patience=5,
+                    # Number of steps with no improvement after which training will be stopped
+                    early_stopping_threshold=0.0,
+                    # Minimum change in the monitored metric to be considered as an improvement
+                ),
+            ],
         )
         torch.cuda.empty_cache()
         trainer.train()
