@@ -173,7 +173,7 @@ def run():
 
     # Create model folder
     config["model_name"], config["loaded_model"] = name_from_model(
-        config["model_checkpoint"]
+        config["model_checkpoint"], config["use_roformer"]
     )
 
     config["task_dir"] = config["root_dir"] / config["task"]
