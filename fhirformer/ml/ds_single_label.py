@@ -2,11 +2,11 @@ from typing import Dict, Union
 
 import numpy as np
 import torch
-import wandb
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.preprocessing import LabelBinarizer
 from torch.nn import BCELoss
 
+import wandb
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.patient_encounter_dataset import PatientEncounterDataset
@@ -20,12 +20,11 @@ class SingleLabelDataset(PatientEncounterDataset):
         self.num_classes = 2
         self.problem_type = "single_label_classification"
 
-        icds = [item["labels"] for item in self.data]
         # Create a mapping of unique root ICD-10 codes to integers
-        self.label_to_id = {}
-        for icd in icds:
-            if icd not in self.label_to_id:
-                self.label_to_id[icd] = len(self.label_to_id)
+        self.label_to_id = {
+            icd: idx
+            for idx, icd in enumerate(set(item["labels"] for item in self.data))
+        }
 
     def __getitem__(self, idx) -> Dict[str, Union[int, str, torch.Tensor]]:
         return {
@@ -33,11 +32,6 @@ class SingleLabelDataset(PatientEncounterDataset):
             "label_codes": self.lb.classes_,
             "label_display": self.data[idx]["labels"],
             "labels": self.label_to_id[self.data[idx]["labels"]],
-            "decoded_labels": [
-                self.lb.classes_[i]
-                for i, label in enumerate(self.labels[idx])
-                if label == 1
-            ],
         }
 
 
@@ -54,62 +48,35 @@ class SingleLabelTrainer(DownstreamTask):
         super().__init__(
             config=config,
             dataset_class=SingleLabelDataset,
-            dataset_args={"config": config, "max_length": None, "num_samples": None},
+            dataset_args={"config": config, "max_length": None, "num_samples": 400},
             model_checkpoint=model_checkpoint,
             batch_size=batch_size,
             epochs=epochs,
             train_ratio=train_ratio,
             prediction_cutoff=prediction_cutoff,
         )
-
         self.model.loss = BCELoss()  # single class classification
-
-        labels = [label for label in self.train_dataset[0]["label_codes"]]
-        self.set_id_to_label(labels)
 
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
         predictions = np.argmax(logits, axis=-1)
         probabilities = self.softmax(logits)
 
-        basic_metrics = self.metrics(
-            predictions=predictions,
-            labels=labels,
-        )
-        # Create a binary representation of the labels and probabilities
-        unique_classes = np.unique(np.concatenate((labels, predictions)))
-        lb = LabelBinarizer()
-        lb.fit(unique_classes)
-        binary_labels = lb.transform(labels)
+        basic_metrics = self.metrics(predictions=predictions, labels=labels)
+        binary_labels = LabelBinarizer().fit_transform(labels)
 
-        # Compute AUC-ROC and AUC-PR only if there are at least two unique classes
-        # if len(unique_classes) > 1:
+        # Safely compute AUC-ROC and AUC-PR
+        auc_roc, auc_pr = 0, 0
         try:
-            auc_roc = roc_auc_score(
-                binary_labels, probabilities[:, unique_classes], multi_class="ovr"
-            )
-            macro_auc_pr = average_precision_score(
-                binary_labels, probabilities[:, unique_classes], average="macro"
-            )
-            micro_auc_pr = average_precision_score(
-                binary_labels, probabilities[:, unique_classes], average="micro"
-            )
+            auc_roc = roc_auc_score(binary_labels, probabilities[:, 1])
+            auc_pr = average_precision_score(binary_labels, probabilities[:, 1])
         except ValueError:
-            # Assign default values or skip these metrics
-            auc_roc = None
-            macro_auc_pr = None
-            micro_auc_pr = None
+            pass
 
-        metrics = {}
-        for metric, value in basic_metrics.items():
-            metrics["eval_" + metric] = value
-
-        metrics["auc_roc"] = auc_roc
-        metrics["macro_auc_pr"] = macro_auc_pr
-        metrics["micro_auc_pr"] = micro_auc_pr
-
-        for metric, value in metrics.items():
-            metrics[metric] = round(value, 2) if value is not None else None
+        metrics = {
+            "eval_" + metric: round(value, 2) for metric, value in basic_metrics.items()
+        }
+        metrics.update({"auc_roc": round(auc_roc, 2), "auc_pr": round(auc_pr, 2)})
 
         # Log metrics to wandb
         wandb.log(metrics)

@@ -4,13 +4,19 @@ import wandb
 
 
 def init_wandb(config):
+    project_name = (
+        "fhirformer" + "_" + "ds"
+        if config["task"].startswith("ds_")
+        else "fhirformer" + "_" + "pretraining"
+    )
+
     wandb.init(
         tags=["baseline"],
-        project=config["task"],
+        project=project_name,
         name=config["model_name"] + "_" + config["run_id"],
-        mode="online",
+        mode="disabled" if config["debug"] else "online",
         entity="ship-ai-autopilot",
-        group="DDP",
+        group=config["task"].split("_")[1],
     )
     wandb.run.log_code(".")
 
