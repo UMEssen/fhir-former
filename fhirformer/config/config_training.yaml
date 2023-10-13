@@ -20,10 +20,8 @@ max_train_samples: null # 300000
 max_test_samples: null # 300000
 learning_rate: {
   "default": 2e-5,
-  "ds_icd": {"bert-base-german-cased": 1e-6},
-  "ds_readmission": {"bert-base-german-cased": 1e-6},
-  "ds_icd": {"LennartKeller/longformer-gottbert-base-8192-aw512": 1e-6},
-  "ds_readmission": {"LennartKeller/longformer-gottbert-base-8192-aw512": 1e-6}
+  "ds_icd": 1e-6,
+  "ds_readmission": 1e-6,
 }
 weight_decay: {
   "default": 0.01,
