@@ -15,11 +15,15 @@ step: "all"
 
 # Training params
 use_roformer: False
-num_train_epochs: 100
+num_train_epochs: 250
 max_train_samples: null # 300000
 max_test_samples: null # 300000
-learning_rate: 2e-5
-weight_decay: 0.1
+learning_rate: {
+  "default": 2e-5,
+}
+weight_decay: {
+  "default": 0.01,
+}
 load_from_file: False
 truncation: "longest_first"
 model_checkpoint: "bert-base-german-cased"

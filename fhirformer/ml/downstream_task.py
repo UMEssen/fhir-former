@@ -18,7 +18,7 @@ from fhirformer.ml.callbacks import (
     BestScoreLoggingCallback,
     TrainingLossLoggingCallback,
 )
-from fhirformer.ml.util import init_wandb
+from fhirformer.ml.util import get_param_for_task_model, init_wandb
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
@@ -82,6 +82,12 @@ class DownstreamTask:
                 num_labels=self.dataset.num_classes,
                 problem_type=self.dataset.problem_type,
             )
+        weight_decay = get_param_for_task_model(
+            "weight_decay", config, self.config["task"], self.config["model"]
+        )
+        learning_rate = get_param_for_task_model(
+            "learning_rate", config, self.config["task"], self.config["model"]
+        )
         self.training_arguments = dict(
             output_dir=self.config["model_dir"],
             num_train_epochs=self.epochs,
@@ -91,8 +97,8 @@ class DownstreamTask:
             save_total_limit=2,
             save_strategy=IntervalStrategy.EPOCH,
             fp16=False,
-            weight_decay=self.config["weight_decay"],
-            learning_rate=self.config["learning_rate"],
+            weight_decay=weight_decay,
+            learning_rate=learning_rate,
             load_best_model_at_end=True,
             metric_for_best_model="loss",
             greater_is_better=False,

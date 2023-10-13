@@ -3,6 +3,13 @@ import os
 import wandb
 
 
+def get_param_for_task_model(config, param: str, task: str, model: str):
+    if task in config[param]:
+        if param in config[param][task]:
+            return config[param][task][model]
+    return config[param]["default"]
+
+
 def init_wandb(config):
     project_name = (
         "fhirformer" + "_" + "ds"
