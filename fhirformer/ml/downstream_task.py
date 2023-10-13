@@ -6,7 +6,6 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 from torch.utils.data import random_split
 from transformers import (
     AutoModelForSequenceClassification,
-    EarlyStoppingCallback,
     IntervalStrategy,
     RoFormerForSequenceClassification,
     Trainer,
@@ -16,6 +15,7 @@ from transformers import (
 import wandb
 from fhirformer.ml.callbacks import (
     BestScoreLoggingCallback,
+    DelayedEarlyStoppingCallback,
     TrainingLossLoggingCallback,
 )
 from fhirformer.ml.util import get_param_for_task_model, init_wandb
@@ -184,11 +184,12 @@ class DownstreamTask:
             callbacks=[
                 TrainingLossLoggingCallback,
                 BestScoreLoggingCallback,
-                EarlyStoppingCallback(
+                DelayedEarlyStoppingCallback(
                     early_stopping_patience=5,
                     # Number of steps with no improvement after which training will be stopped
                     early_stopping_threshold=0.0,
                     # Minimum change in the monitored metric to be considered as an improvement
+                    delay_epochs=5,
                 ),
             ],
         )

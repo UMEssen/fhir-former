@@ -12,6 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class BestScoreLoggingCallback(TrainerCallback):
+    METRICS_TO_EXCLUDE = [
+        "eval_runtime",
+        "eval_steps_per_second",
+        "eval_samples_per_second",
+        "learning_rate",
+    ]
+
     def __init__(self):
         self.best_scores = {}
 
@@ -27,6 +34,9 @@ class BestScoreLoggingCallback(TrainerCallback):
                 keys_to_include = [
                     k for k in logs.keys() if any(keyword in k for keyword in keywords)
                 ]
+            keys_to_include = [
+                x for x in keys_to_include if x not in self.METRICS_TO_EXCLUDE
+            ]
             # Filter the logs dictionary to only include keys that are in the specified list
             filtered_logs = {k: v for k, v in logs.items() if k in keys_to_include}
 
@@ -39,8 +49,6 @@ class BestScoreLoggingCallback(TrainerCallback):
 
             wandb.log(temp_dict)
 
-        # Define the keywords to include
-        # log_best(["macro_f1", "weighted_f1", "macro_top10_f1", "weighted_top10_f1"])
         log_best()
 
 
@@ -70,8 +78,11 @@ class DelayedEarlyStoppingCallback(TrainerCallback):
         )
 
     def on_epoch_end(self, args, state, control, **kwargs):
-        if state.global_step > self.delay_epochs:
-            logger.info("Early stopping callback kicking in...")
+        if state.epoch > self.delay_epochs:
+            if state.epoch == self.delay_epochs + 1:
+                logger.info(
+                    f"Delaying early stopping for {self.delay_epochs} epochs..."
+                )
             self.early_stopping_callback.on_epoch_end(args, state, control, **kwargs)
 
 
