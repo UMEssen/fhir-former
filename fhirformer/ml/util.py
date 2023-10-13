@@ -5,7 +5,7 @@ import wandb
 
 def get_param_for_task_model(config, param: str, task: str, model: str):
     if task in config[param]:
-        if model in config[param][task]:
+        if isinstance(config[param][task], dict) and model in config[param][task]:
             return config[param][task][model]
         else:
             return config[param][task]["default"]
