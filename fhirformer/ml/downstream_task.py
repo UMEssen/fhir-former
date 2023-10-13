@@ -2,7 +2,6 @@ import logging
 import os
 
 import numpy as np
-import wandb
 from sklearn.metrics import f1_score, precision_score, recall_score
 from torch.utils.data import random_split
 from transformers import (
@@ -14,6 +13,7 @@ from transformers import (
     TrainingArguments,
 )
 
+import wandb
 from fhirformer.ml.callbacks import (
     BestScoreLoggingCallback,
     TrainingLossLoggingCallback,
@@ -84,12 +84,18 @@ class DownstreamTask:
             )
         weight_decay = float(
             get_param_for_task_model(
-                config, "weight_decay", self.config["task"], self.config["model"]
+                config,
+                "weight_decay",
+                self.config["task"],
+                self.config["model_checkpoint"],
             )
         )
         learning_rate = float(
             get_param_for_task_model(
-                config, "learning_rate", self.config["task"], self.config["model"]
+                config,
+                "learning_rate",
+                self.config["task"],
+                self.config["model_checkpoint"],
             )
         )
         self.training_arguments = dict(
