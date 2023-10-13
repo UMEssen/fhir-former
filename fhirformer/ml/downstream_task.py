@@ -82,11 +82,15 @@ class DownstreamTask:
                 num_labels=self.dataset.num_classes,
                 problem_type=self.dataset.problem_type,
             )
-        weight_decay = get_param_for_task_model(
-            "weight_decay", config, self.config["task"], self.config["model"]
+        weight_decay = float(
+            get_param_for_task_model(
+                config, "weight_decay", self.config["task"], self.config["model"]
+            )
         )
-        learning_rate = get_param_for_task_model(
-            "learning_rate", config, self.config["task"], self.config["model"]
+        learning_rate = float(
+            get_param_for_task_model(
+                config, "learning_rate", self.config["task"], self.config["model"]
+            )
         )
         self.training_arguments = dict(
             output_dir=self.config["model_dir"],
