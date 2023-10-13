@@ -62,7 +62,9 @@ class SingleLabelTrainer(DownstreamTask):
         predictions = np.argmax(logits, axis=-1)
         probabilities = self.softmax(logits)
 
-        basic_metrics = self.metrics(predictions=predictions, labels=labels)
+        basic_metrics = self.metrics(
+            predictions=predictions, labels=labels, single_label=True
+        )
         binary_labels = LabelBinarizer().fit_transform(labels)
 
         # Safely compute AUC-ROC and AUC-PR
