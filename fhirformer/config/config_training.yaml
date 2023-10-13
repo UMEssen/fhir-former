@@ -18,6 +18,8 @@ use_roformer: False
 num_train_epochs: 100
 max_train_samples: null # 300000
 max_test_samples: null # 300000
+learning_rate: 2e-5
+weight_decay: 0.1
 load_from_file: False
 truncation: "longest_first"
 model_checkpoint: "bert-base-german-cased"

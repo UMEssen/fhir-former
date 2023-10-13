@@ -12,6 +12,8 @@ from transformers import (
     EarlyStoppingCallback,
     EvalPrediction,
     IntervalStrategy,
+    RoFormerForSequenceClassification,
+    RoFormerTokenizerFast,
     Trainer,
     TrainingArguments,
 )
@@ -28,11 +30,16 @@ class Pretrainer:
     def __init__(self, config, tokenizer=None):
         self.model_name = config["model_checkpoint"]
         self.config = config
-        self.tokenizer = (
-            tokenizer
-            if tokenizer
-            else AutoTokenizer.from_pretrained(config["model_checkpoint"])
-        )
+        if tokenizer:
+            self.tokenizer = tokenizer
+        elif self.config["use_roformer"]:
+            self.tokenizer = RoFormerTokenizerFast.from_pretrained(
+                self.config["model_checkpoint"]
+            )
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.config["model_checkpoint"]
+            )
         self.model_best_path = config["model_dir"] / "best"
 
     def compute_metrics(self, eval_pred: EvalPrediction):
@@ -80,7 +87,7 @@ class Pretrainer:
             yield {"text": text["text"]}
 
     def tokenize(self, dataset):
-        (self.config["task_dir"] / "map_cache").mkdir(parents=True, exist_ok=True)
+        # (self.config["task_dir"] / "map_cache").mkdir(parents=True, exist_ok=True)
         return dataset.map(
             lambda examples: self.tokenizer(
                 examples["text"],
@@ -88,11 +95,11 @@ class Pretrainer:
                 padding="max_length",
                 max_length=None,  # , return_tensors="pt"
             ),
-            cache_file_name=str(
-                self.config["task_dir"]
-                / "map_cache"
-                / f"{self.config['task']}_tokenized_{dataset.split}.arrow"
-            ),
+            # cache_file_name=str(
+            #     self.config["task_dir"]
+            #     / "map_cache"
+            #     / f"{self.config['task']}_tokenized_{dataset.split}.arrow"
+            # ),
         )
 
     def get_fhir_dataset(self):
@@ -176,7 +183,7 @@ class Pretrainer:
             report_to="wandb",
             evaluation_strategy="epoch",
             save_strategy=IntervalStrategy.EPOCH,
-            fp16=True,
+            fp16=False,
             metric_for_best_model="loss",
             greater_is_better=False,
         )
@@ -197,7 +204,12 @@ class Pretrainer:
         data_collator = DataCollatorForLanguageModeling(
             tokenizer=self.tokenizer, mlm=True, mlm_probability=0.15
         )
-        model = AutoModelForMaskedLM.from_pretrained(self.model_name)
+        if self.config["use_roformer"]:
+            model = RoFormerForSequenceClassification.from_pretrained(
+                self.model_name,
+            )
+        else:
+            model = AutoModelForMaskedLM.from_pretrained(self.model_name)
 
         # Create the Trainer
         trainer = Trainer(

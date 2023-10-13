@@ -90,9 +90,9 @@ class DownstreamTask:
             evaluation_strategy="epoch",
             save_total_limit=2,
             save_strategy=IntervalStrategy.EPOCH,
-            fp16=True,
-            weight_decay=2e-5 * 0.1,
-            learning_rate=2e-5,
+            fp16=False,
+            weight_decay=self.config["weight_decay"],
+            learning_rate=self.config["learning_rate"],
             load_best_model_at_end=True,
             metric_for_best_model="loss",
             greater_is_better=False,
@@ -108,27 +108,45 @@ class DownstreamTask:
         self.model.config.label2id = {val: i for i, val in enumerate(labels)}
 
     @staticmethod
-    def metrics(predictions: np.ndarray, labels: np.ndarray):
+    def metrics(predictions: np.ndarray, labels: np.ndarray, single_label=False):
         zero_division = np.nan
         return {
             "accuracy": (predictions == labels).mean(),
             "macro_precision": precision_score(
-                labels, predictions, average="macro", zero_division=zero_division
+                labels,
+                predictions,
+                average=None if single_label else "macro",
+                zero_division=zero_division,
             ),
             "macro_recall": recall_score(
-                labels, predictions, average="macro", zero_division=zero_division
+                labels,
+                predictions,
+                average=None if single_label else "macro",
+                zero_division=zero_division,
             ),
             "macro_f1": f1_score(
-                labels, predictions, average="macro", zero_division=zero_division
+                labels,
+                predictions,
+                average=None if single_label else "macro",
+                zero_division=zero_division,
             ),
             "weighted_precision": precision_score(
-                labels, predictions, average="weighted", zero_division=zero_division
+                labels,
+                predictions,
+                average=None if single_label else "weighted",
+                zero_division=zero_division,
             ),
             "weighted_recall": recall_score(
-                labels, predictions, average="weighted", zero_division=zero_division
+                labels,
+                predictions,
+                average=None if single_label else "weighted",
+                zero_division=zero_division,
             ),
             "weighted_f1": f1_score(
-                labels, predictions, average="weighted", zero_division=zero_division
+                labels,
+                predictions,
+                average=None if single_label else "weighted",
+                zero_division=zero_division,
             ),
         }
 
