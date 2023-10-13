@@ -20,7 +20,7 @@ from transformers import (
 
 # from fhirformer.helper.util import is_main_process
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
-from fhirformer.ml.util import init_wandb
+from fhirformer.ml.util import get_param_for_task_model, init_wandb
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
@@ -171,6 +171,16 @@ class Pretrainer:
         return self.tokenize(train_dataset), self.tokenize(val_dataset)
 
     def pretrain(self):
+        weight_decay = float(
+            get_param_for_task_model(
+                self.config, "weight_decay", self.config["task"], self.config["model"]
+            )
+        )
+        learning_rate = float(
+            get_param_for_task_model(
+                self.config, "learning_rate", self.config["task"], self.config["model"]
+            )
+        )
         training_args = TrainingArguments(
             output_dir=self.config["model_dir"],
             overwrite_output_dir=True,
@@ -182,6 +192,8 @@ class Pretrainer:
             eval_accumulation_steps=self.config["eval_accumulation_steps"],  # tune
             report_to="wandb",
             evaluation_strategy="epoch",
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
             save_strategy=IntervalStrategy.EPOCH,
             fp16=False,
             metric_for_best_model="loss",
