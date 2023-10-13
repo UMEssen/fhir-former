@@ -42,21 +42,24 @@ def get_nondependent_resources(config):
 
 def name_from_model(
     model_name: Union[str, Path], roformer: bool = False
-) -> Tuple[str, bool]:
+) -> Tuple[str, str, bool]:
     if isinstance(model_name, Path):
         name = model_name.parent.name
+        plain_name = name.replace("_", "/")
         if not model_name.exists():
             raise ValueError(f"Model {model_name} does not exist.")
         load = True
     elif Path(model_name).exists():
         name = Path(model_name).parent.name
+        plain_name = name.replace("_", "/")
         load = True
     else:
+        plain_name = model_name
         name = model_name.replace("/", "_")
         if roformer:
             name = "roformer_" + name
         load = False
-    return name, load
+    return plain_name, name, load
 
 
 def clear_process_data(config):

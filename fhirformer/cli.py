@@ -173,7 +173,7 @@ def run():
     config["data_dir"].mkdir(parents=True, exist_ok=True)
 
     # Create model folder
-    config["model_name"], config["loaded_model"] = name_from_model(
+    config["model"], config["model_name"], config["loaded_model"] = name_from_model(
         config["model_checkpoint"], config["use_roformer"]
     )
 
