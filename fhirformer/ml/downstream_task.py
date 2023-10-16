@@ -125,7 +125,7 @@ class DownstreamTask:
 
     @staticmethod
     def metrics(predictions: np.ndarray, labels: np.ndarray, single_label=False):
-        zero_division = np.nan
+        zero_division = 0
         return {
             "accuracy": (predictions == labels).mean(),
             "macro_precision": precision_score(
