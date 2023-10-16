@@ -3,10 +3,9 @@ from typing import List
 
 import numpy as np
 import torch
+import wandb
 from datasets import load_metric
 from transformers import EarlyStoppingCallback, TrainerCallback
-
-import wandb
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +42,11 @@ class BestScoreLoggingCallback(TrainerCallback):
             # Check if a new best score is achieved
             temp_dict = {}
             for key, value in filtered_logs.items():
-                if key not in self.best_scores or self.best_scores[key] < value:
+                if (
+                    (key not in self.best_scores)
+                    or ("loss" not in key and self.best_scores[key] < value)
+                    or ("loss" in key and self.best_scores[key] > value)
+                ):
                     self.best_scores[key] = value
                     temp_dict[f"{key}.best"] = value
 
