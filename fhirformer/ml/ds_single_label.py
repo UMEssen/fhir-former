@@ -74,11 +74,7 @@ class SingleLabelTrainer(DownstreamTask):
 
         metrics = {}
         for metric, value in basic_metrics.items():
-            if isinstance(value, np.ndarray):
-                metrics[f"eval_{metric}_0"] = round(value[0], 2)
-                metrics[f"eval_{metric}_1"] = round(value[1], 2)
-            else:
-                metrics[f"eval_{metric}"] = round(value, 2)
+            metrics["eval_" + metric] = value
 
         metrics.update({"auc_roc": round(auc_roc, 2), "auc_pr": round(auc_pr, 2)})
 
