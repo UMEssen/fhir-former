@@ -59,8 +59,8 @@ class SingleLabelTrainer(DownstreamTask):
 
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
-        predictions = np.argmax(logits, axis=-1)
         probabilities = self.softmax(logits)
+        predictions = np.argmax(probabilities, axis=-1)
         basic_metrics = self.metrics(
             predictions=predictions, labels=labels, single_label=True
         )
