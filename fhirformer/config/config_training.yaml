@@ -7,9 +7,9 @@ start_datetime: '2018-01-01'
 end_datetime: '2023-01-01'
 run_id: "2018-2023-v1"
 
-# start_datetime: "2021-03-01"
-# end_datetime: "2021-03-30"
-# run_id: "testing_30d"
+#start_datetime: "2021-03-01"
+#end_datetime: "2021-03-30"
+#run_id: "testing_30d"
 root_dir: "/data"
 step: "all"
 
@@ -22,10 +22,11 @@ learning_rate: {
   "default": 2e-5,
   "ds_icd": { "default": 1e-6 },
   "ds_readmission": { "default": 1e-6 },
-  "pretrain_fhir": { "default": 1e-6 },
+  "pretrain_fhir": { "default": 2e-7 },
 }
 weight_decay: {
   "default": 0.01,
+  "ds_image": {"default": 2e-5 * 0.1},
 }
 
 load_from_file: False
