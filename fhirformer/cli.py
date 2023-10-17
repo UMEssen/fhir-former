@@ -3,6 +3,7 @@ import logging
 import pickle
 from datetime import datetime
 from pathlib import Path
+import pytz
 
 import wandb
 import yaml
@@ -206,10 +207,13 @@ def run():
 
     if "train" in config["step"]:
         init_wandb(config)
+        german_tz = pytz.timezone("Europe/Berlin")
+        current_time_german = datetime.now(german_tz).strftime("%Y%m%d_%H_%M")
+
         config["model_dir"] = (
             config["task_dir"]
             / config["model_name"]
-            / (datetime.now().strftime("%Y%m%d_%H_%M") + "_" + wandb.run.id)
+            / (current_time_german + "_" + wandb.run.id)
         )
         pipelines[config["task"]]["train"](config)
         with (config["task_dir"] / "config_train.pkl").open("wb") as of:
