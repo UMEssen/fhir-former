@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 from fhirformer.data_preprocessing import (
+    chunk_documents,
     generate_ds_icd_samples,
     generate_ds_image_samples,
     generate_ds_main_icd,
@@ -49,7 +50,7 @@ pipelines = {
         "train": pre_train_llm.main,
     },
     "pretrain_documents": {
-        "generate": lambda x: x,
+        "generate": chunk_documents.main,
         "train": pre_train_llm.main,
     },
 }
@@ -183,28 +184,30 @@ def run():
         / config["model_name"]
         / datetime.now().strftime("%Y%m%d_%H_%M")
     )
-    config["task_dir"].mkdir(parents=True, exist_ok=True)
-    logger.info(f"The outputs will be stored in {config['task_dir']}.")
 
     if config["step"] == "all":
         config["step"] = "data+sampling+train"
 
-    config_name = f"config_{config['step']}.pkl"
     config["step"] = config["step"].split("+")
 
     if "data" in config["step"] and is_main_process():
         build_cache(config)
-
+        with (config["task_dir"] / "config_data.pkl").open("wb") as of:
+            pickle.dump(config, of)
         if config["download_documents"]:
             exit()
 
-    with (config["task_dir"] / config_name).open("wb") as of:
-        pickle.dump(config, of)
-
     assert config["task"] in pipelines, f"Task {config['task']} not found."
+
+    config["task_dir"].mkdir(parents=True, exist_ok=True)
+    logger.info(f"The outputs will be stored in {config['task_dir']}.")
 
     if "sampling" in config["step"] and is_main_process():
         pipelines[config["task"]]["generate"](config)
+        with (config["task_dir"] / "config_sampling.pkl").open("wb") as of:
+            pickle.dump(config, of)
 
     if "train" in config["step"]:
         pipelines[config["task"]]["train"](config)
+        with (config["task_dir"] / "config_train.pkl").open("wb") as of:
+            pickle.dump(config, of)
