@@ -26,7 +26,7 @@ learning_rate: {
 }
 weight_decay: {
   "default": 0.01,
-  "ds_image": {"default": 2e-5 * 0.1},
+  "ds_image": {"default": 2e-6},
 }
 
 load_from_file: False
