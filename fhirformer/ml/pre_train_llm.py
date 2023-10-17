@@ -243,6 +243,7 @@ class Pretrainer:
         torch.cuda.empty_cache()
         trainer.train()
         trainer.save_model(self.model_best_path)
+        self.tokenizer.save_pretrained(self.model_best_path)
 
 
 def main(config):

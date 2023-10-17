@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Dict, Union
 
 from torch.utils.data import Dataset
@@ -13,6 +14,13 @@ class PatientEncounterDataset(Dataset):
                 self.config["model_checkpoint"]
             )
         else:
+            model_path = Path(self.config["model_checkpoint"])
+            if model_path.exists() and not (model_path / "tokenizer.json").exists():
+                with (model_path / "config.json").open("rb") as f:
+                    model_name = json.load(f)["_name_or_path"]
+
+                tokenizer = AutoTokenizer.from_pretrained(model_name)
+                tokenizer.save_pretrained(str(model_path))
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.config["model_checkpoint"]
             )
