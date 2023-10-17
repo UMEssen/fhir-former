@@ -20,7 +20,7 @@ from transformers import (
 
 # from fhirformer.helper.util import is_main_process
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
-from fhirformer.ml.util import get_param_for_task_model, init_wandb
+from fhirformer.ml.util import get_param_for_task_model
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
@@ -38,7 +38,8 @@ class Pretrainer:
             )
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.config["model_checkpoint"]
+                self.config["model_checkpoint"],
+                do_lower_case=False,
             )
         self.model_best_path = config["model_dir"] / "best"
 
@@ -208,8 +209,6 @@ class Pretrainer:
         train_dataset, val_dataset = self.build_datasets()
 
         logger.info("Starting pre-training...")
-        init_wandb(self.config)
-
         self.model_best_path.mkdir(parents=True, exist_ok=True)
 
         # Define data collator
@@ -229,12 +228,12 @@ class Pretrainer:
             args=training_args,
             data_collator=data_collator,
             train_dataset=train_dataset,
-            eval_dataset=val_dataset if val_dataset else None,
-            compute_metrics=self.compute_metrics,
+            eval_dataset=val_dataset,
+            # compute_metrics=self.compute_metrics,
             callbacks=[
                 TrainingLossLoggingCallback,
                 EarlyStoppingCallback(
-                    early_stopping_patience=5,
+                    early_stopping_patience=20,
                     # Number of steps with no improvement after which training will be stopped
                     early_stopping_threshold=0.0,
                     # Minimum change in the monitored metric to be considered as an improvement

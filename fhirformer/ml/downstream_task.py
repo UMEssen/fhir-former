@@ -18,7 +18,7 @@ from fhirformer.ml.callbacks import (
     DelayedEarlyStoppingCallback,
     TrainingLossLoggingCallback,
 )
-from fhirformer.ml.util import get_param_for_task_model, init_wandb
+from fhirformer.ml.util import get_param_for_task_model
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
@@ -192,8 +192,6 @@ class DownstreamTask:
     def train(self) -> None:
         training_args = TrainingArguments(**self.training_arguments)
         self.model_best_path.mkdir(parents=True, exist_ok=True)
-        with training_args.main_process_first(desc="Create Dataset"):
-            init_wandb(self.config)
 
         trainer = Trainer(
             model=self.model,

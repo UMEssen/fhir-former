@@ -4,6 +4,7 @@ import pickle
 from datetime import datetime
 from pathlib import Path
 
+import wandb
 import yaml
 
 from fhirformer.data_preprocessing import (
@@ -22,6 +23,7 @@ from fhirformer.helper.util import (
     timed,
 )
 from fhirformer.ml import ds_multi_label, ds_single_label, pre_train_llm
+from fhirformer.ml.util import init_wandb
 
 pipelines = {
     "ds_icd": {
@@ -179,11 +181,6 @@ def run():
     )
 
     config["task_dir"] = config["root_dir"] / config["task"]
-    config["model_dir"] = (
-        config["task_dir"]
-        / config["model_name"]
-        / datetime.now().strftime("%Y%m%d_%H_%M")
-    )
 
     if config["step"] == "all":
         config["step"] = "data+sampling+train"
@@ -208,6 +205,12 @@ def run():
             pickle.dump(config, of)
 
     if "train" in config["step"]:
+        init_wandb(config)
+        config["model_dir"] = (
+            config["task_dir"]
+            / config["model_name"]
+            / (datetime.now().strftime("%Y%m%d_%H_%M") + "_" + wandb.run.id)
+        )
         pipelines[config["task"]]["train"](config)
         with (config["task_dir"] / "config_train.pkl").open("wb") as of:
             pickle.dump(config, of)
