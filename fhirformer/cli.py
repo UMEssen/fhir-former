@@ -9,7 +9,6 @@ import wandb
 import yaml
 
 from fhirformer.data_preprocessing import (
-    chunk_documents,
     generate_ds_icd_samples,
     generate_ds_image_samples,
     generate_ds_main_icd,
@@ -53,7 +52,7 @@ pipelines = {
         "train": pre_train_llm.main,
     },
     "pretrain_documents": {
-        "generate": chunk_documents.main,
+        "generate": lambda x: x,
         "train": pre_train_llm.main,
     },
 }
