@@ -208,8 +208,13 @@ def run():
         config["model_dir"] = (
             config["task_dir"]
             / config["model_name"]
-            / (current_time_german + "_" + wandb.run.id)
+            / (
+                current_time_german
+                + "_"
+                + (wandb.run.id if not config["debug"] else "debug")
+            )
         )
+
         pipelines[config["task"]]["train"](config)
         with (config["task_dir"] / "config_train.pkl").open("wb") as of:
             pickle.dump(config, of)
