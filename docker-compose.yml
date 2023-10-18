@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: "Dockerfile"
-    user: $DOCKER_USER:$DOCKER_GROUP
+    user: $DOCKER_USER:1009
     image: "ship-ai/fhirformer"
     runtime: nvidia
     shm_size: 32g
