@@ -104,6 +104,7 @@ def build_cache(config):
     if config["task"] == "None":
         logger.info("Skipping filtering and validation because task is none.")
         return
+    config["task_dir"].mkdir(parents=True, exist_ok=True)
     # filter patients needs to run first as we filter patients based on encounters patient_ids
     for resource in sorted(dependent_resources, reverse=True) + non_dependent_resources:
         logger.info(f"Filtering {resource}...")
