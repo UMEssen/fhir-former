@@ -54,6 +54,16 @@ resources_for_task: {
         "service_request",
         "medication",
     ],
+    "ds_image": [
+        "condition",
+        "procedure",
+        "imaging_study",
+        "diagnostic_report",
+        "biologically_derived_product",
+        "observation",
+        "episode_of_care",
+        "medication",
+    ],
     "pretrain_documents": [
         "diagnostic_report",
     ],
