@@ -70,7 +70,7 @@ class EncounterDatasetBuilder:
             "text_sampling_column_maps"
         ].items():
             # Do not use resource if it's not in the "resources_for_task" list
-            if (
+            if resource not in {"patient", "encounter"} and (
                 self.config["resources_for_task"].get(self.config["task"], None)
                 is not None
                 and resource
