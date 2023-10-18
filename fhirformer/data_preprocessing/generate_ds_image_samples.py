@@ -56,11 +56,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
         """
         pat_data = datastore.filter_patient(patient_id=patient_id)
 
-        if (
-            len(pat_data.patient_df) == 0
-            or len(pat_data.resources["imaging_study"]) == 0
-            or len(pat_data.resources["encounter"]) == 0
-        ):
+        if len(pat_data.patient_df) == 0 or len(pat_data.resources["encounter"]) == 0:
             return []
 
         patient_metadata_str = (
@@ -68,64 +64,55 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
         )
         sample_list = []
         for enc in pat_data.resources["encounter"].itertuples(index=False):
-            # get imaging study for encounter duration
+            # Get data before the beginning of this particular encounter
+            resources_before_enc = pat_data.filter_patient(
+                patient_id=patient_id,
+                end_filter_date=enc.start,
+                end_inclusive=False,
+            ).resources
+            pat_hist = self.pat_history_to_string(resources_before_enc)
 
+            if not pat_hist:
+                continue
+
+            # Get imaging study for encounter duration
             imaging_study_during_enc = pat_data.filter_patient(
                 patient_id=patient_id,
                 start_filter_date=enc.start,
                 end_filter_date=enc.end,
                 target_resource="imaging_study",
+                start_inclusive=True,
                 end_inclusive=False,
             )
-            if len(imaging_study_during_enc.resources["imaging_study"]) == 0:
-                continue
-            else:
-                # get the label
-                labels = (
-                    imaging_study_during_enc.resources["imaging_study"][
-                        "procedure_code"
-                    ]
-                    .value_counts()
-                    .keys()
-                ).tolist()
+            # Get the label
+            labels = (
+                imaging_study_during_enc.resources["imaging_study"][
+                    "procedure_code"
+                ].unique()
+            ).tolist()
 
-                labels = [
-                    label
-                    for label in labels
-                    if label in self.config["valid_procedure_codes"]
-                ]
+            labels = [
+                label
+                for label in labels
+                if label in self.config["valid_procedure_codes"]
+            ]
 
-                if len(labels) == 0:
-                    continue
+            text = (
+                f"{patient_metadata_str}"
+                f"Encounter:\n{self.enc_to_string(enc)}\n\n"
+                f"ICD Version: {self.get_icd_version(resources_before_enc['condition'])}\n\n"
+                f"Patient history:\n{pat_hist}"
+            )
 
-                # Get data before the beginning of this particular encounter
-                resources_before_enc = pat_data.filter_patient(
-                    patient_id=patient_id,
-                    end_filter_date=enc.start,
-                    end_inclusive=False,
-                ).resources
-
-                pat_hist = self.pat_history_to_string(resources_before_enc)
-
-                if not pat_hist:
-                    continue
-
-                text = (
-                    f"{patient_metadata_str}"
-                    f"Encounter:\n{self.enc_to_string(enc)}\n\n"
-                    f"ICD Version: {self.get_icd_version(resources_before_enc['condition'])}\n\n"
-                    f"Patient history:\n{pat_hist}"
-                )
-
-                sample_list.append(
-                    {
-                        "patient_id": str(patient_id),
-                        "encounter_id": enc.encounter_id,
-                        "encounter_start_date": str(enc.start),
-                        "text": text,
-                        "labels": labels,
-                    }
-                )
+            sample_list.append(
+                {
+                    "patient_id": str(patient_id),
+                    "encounter_id": enc.encounter_id,
+                    "encounter_start_date": str(enc.start),
+                    "text": text,
+                    "labels": labels,
+                }
+            )
         return sample_list
 
 
