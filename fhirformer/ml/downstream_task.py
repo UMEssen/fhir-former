@@ -7,7 +7,6 @@ from torch.utils.data import random_split
 from transformers import (
     AutoModelForSequenceClassification,
     IntervalStrategy,
-    RoFormerForSequenceClassification,
     Trainer,
     TrainingArguments,
 )
@@ -69,18 +68,11 @@ class DownstreamTask:
         )
         logger.info(f"Total samples: {len(self.train_dataset)+len(self.val_dataset)}")
 
-        if self.config["use_roformer"]:
-            self.model = RoFormerForSequenceClassification.from_pretrained(
-                self.model_checkpoint,
-                num_labels=self.dataset.num_classes,
-                problem_type=self.dataset.problem_type,
-            )
-        else:
-            self.model = AutoModelForSequenceClassification.from_pretrained(
-                self.model_checkpoint,
-                num_labels=self.dataset.num_classes,
-                problem_type=self.dataset.problem_type,
-            )
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            self.model_checkpoint,
+            num_labels=self.dataset.num_classes,
+            problem_type=self.dataset.problem_type,
+        )
         weight_decay = float(
             get_param_for_task_model(
                 config,

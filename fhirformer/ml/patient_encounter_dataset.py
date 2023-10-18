@@ -3,27 +3,21 @@ from pathlib import Path
 from typing import Dict, Union
 
 from torch.utils.data import Dataset
-from transformers import AutoTokenizer, RoFormerTokenizerFast
+from transformers import AutoTokenizer
 
 
 class PatientEncounterDataset(Dataset):
     def __init__(self, config, max_length=None, num_samples=None):
         self.config = config
-        if self.config["use_roformer"]:
-            self.tokenizer = RoFormerTokenizerFast.from_pretrained(
-                self.config["model_checkpoint"]
-            )
-        else:
-            model_path = Path(self.config["model_checkpoint"])
-            if model_path.exists() and not (model_path / "tokenizer.json").exists():
-                with (model_path / "config.json").open("rb") as f:
-                    model_name = json.load(f)["_name_or_path"]
 
-                tokenizer = AutoTokenizer.from_pretrained(model_name)
-                tokenizer.save_pretrained(str(model_path))
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.config["model_checkpoint"]
-            )
+        model_path = Path(self.config["model_checkpoint"])
+        if model_path.exists() and not (model_path / "tokenizer.json").exists():
+            with (model_path / "config.json").open("rb") as f:
+                model_name = json.load(f)["_name_or_path"]
+
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            tokenizer.save_pretrained(str(model_path))
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_checkpoint"])
         with open(self.config["task_dir"] / "train.json", "r") as f:
             self.data = json.load(f)[:num_samples] if num_samples else json.load(f)
         self.max_length = max_length

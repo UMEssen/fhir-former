@@ -71,7 +71,7 @@ class DelayedEarlyStoppingCallback(TrainerCallback):
     def __init__(
         self,
         early_stopping_patience: int,
-        early_stopping_threshold: int,
+        early_stopping_threshold: float,
         delay_epochs: int,
     ):
         super().__init__()
