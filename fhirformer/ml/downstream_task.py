@@ -105,9 +105,6 @@ class DownstreamTask:
             greater_is_better=False,
         )
 
-    def compute_label_distribution(self):
-        print(self.train_dataset["labels"])
-
     @staticmethod
     def softmax(x):
         e_x = np.exp(x - np.max(x, axis=-1, keepdims=True))

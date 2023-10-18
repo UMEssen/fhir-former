@@ -47,10 +47,10 @@ def main(config, maximum_examples: int = 10):
         truncation=True,
         device=0 if torch.cuda.is_available() else -1,
     )
-    texts = [text for text in KeyDataset(data, "text")]
+    # texts = [text for text in KeyDataset(data, "text")]
     labels = [label for label in KeyDataset(data, "labels")]
     if config["debug"]:
-        texts = texts[:maximum_examples]
+        # texts = texts[:maximum_examples]
         labels = labels[:maximum_examples]
     single_label = not isinstance(labels[0], list)
     if single_label:
@@ -99,12 +99,13 @@ def main(config, maximum_examples: int = 10):
     wandb.log(metrics)
 
     table = wandb.Table(
-        columns=["Text", "Predicted Label", "True Label", "Probabilities"]
+        # columns=["Predicted Label", "True Label", "Probabilities"],
+        columns=["Text", "Predicted Label", "True Label", "Probabilities"],
     )
 
     for i in range(maximum_examples):
         table.add_data(
-            texts[i],
+            # texts[i],
             str(predictions[i]),
             str(labels[i]),
             str(probabilities[i]),
