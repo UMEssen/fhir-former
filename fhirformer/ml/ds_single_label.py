@@ -48,7 +48,11 @@ class SingleLabelTrainer(DownstreamTask):
         super().__init__(
             config=config,
             dataset_class=SingleLabelDataset,
-            dataset_args={"config": config, "max_length": None, "num_samples": None},
+            dataset_args={
+                "config": config,
+                "max_length": None,
+                "num_samples": config["max_train_samples"],
+            },
             model_checkpoint=model_checkpoint,
             batch_size=batch_size,
             epochs=epochs,
