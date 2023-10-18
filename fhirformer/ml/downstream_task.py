@@ -3,7 +3,6 @@ import os
 
 import numpy as np
 import wandb
-from sklearn.metrics import f1_score, precision_score, recall_score
 from torch.utils.data import random_split
 from transformers import (
     AutoModelForSequenceClassification,
@@ -122,69 +121,6 @@ class DownstreamTask:
     def set_id_to_label(self, labels):
         self.model.config.id2label = {i: val for i, val in enumerate(labels)}
         self.model.config.label2id = {val: i for i, val in enumerate(labels)}
-
-    @staticmethod
-    def metrics(predictions: np.ndarray, labels: np.ndarray, single_label=False):
-        zero_division = 0
-        if single_label:
-            return {
-                "accuracy": (predictions == labels).mean(),
-                "precision": precision_score(
-                    labels,
-                    predictions,
-                    zero_division=zero_division,
-                ),
-                "recall": recall_score(
-                    labels,
-                    predictions,
-                    zero_division=zero_division,
-                ),
-                "f1": f1_score(
-                    labels,
-                    predictions,
-                    zero_division=zero_division,
-                ),
-            }
-        else:
-            return {
-                "accuracy": (predictions == labels).mean(),
-                "macro_precision": precision_score(
-                    labels,
-                    predictions,
-                    average="macro",
-                    zero_division=zero_division,
-                ),
-                "macro_recall": recall_score(
-                    labels,
-                    predictions,
-                    average="macro",
-                    zero_division=zero_division,
-                ),
-                "macro_f1": f1_score(
-                    labels,
-                    predictions,
-                    average="macro",
-                    zero_division=zero_division,
-                ),
-                "weighted_precision": precision_score(
-                    labels,
-                    predictions,
-                    average="weighted",
-                    zero_division=zero_division,
-                ),
-                "weighted_recall": recall_score(
-                    labels,
-                    predictions,
-                    average="weighted",
-                    zero_division=zero_division,
-                ),
-                "weighted_f1": f1_score(
-                    labels,
-                    predictions,
-                    average="weighted",
-                    zero_division=zero_division,
-                ),
-            }
 
     def compute_metrics(self, eval_pred):
         raise NotImplementedError
