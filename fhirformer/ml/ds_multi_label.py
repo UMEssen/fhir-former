@@ -10,6 +10,7 @@ from torch.nn import BCEWithLogitsLoss
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.patient_encounter_dataset import PatientEncounterDataset
+from fhirformer.ml.util import get_evaluation_metrics
 
 
 class MultiLabelDataset(PatientEncounterDataset):
@@ -84,12 +85,12 @@ class MultiLabelTrainer(DownstreamTask):
         labels_top10 = labels[:, self.top10_classes]
         predictions_top10 = predictions[:, self.top10_classes]
 
-        basic_metrics = self.metrics(predictions=predictions, labels=labels)
+        basic_metrics = get_evaluation_metrics(predictions=predictions, labels=labels)
         metrics = {}
         for metric, value in basic_metrics.items():
             metrics["eval_" + metric] = value
 
-        top_ten_metrics = self.metrics(
+        top_ten_metrics = get_evaluation_metrics(
             predictions=predictions_top10, labels=labels_top10
         )
         for metric, value in top_ten_metrics.items():

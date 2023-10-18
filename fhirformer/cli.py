@@ -22,7 +22,7 @@ from fhirformer.helper.util import (
     name_from_model,
     timed,
 )
-from fhirformer.ml import ds_multi_label, ds_single_label, pre_train_llm
+from fhirformer.ml import ds_multi_label, ds_single_label, inference, pre_train_llm
 from fhirformer.ml.util import init_wandb
 
 pipelines = {
@@ -134,13 +134,6 @@ def parse_args_local(config) -> argparse.Namespace:
         default=config["task"],
         required=True,
     )
-    # TODO: Currently not used, we only do training
-    parser.add_argument(
-        "--phase",
-        type=str,
-        choices=["train", "test"],
-        default="train",
-    )
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -184,7 +177,7 @@ def run():
     config["task_dir"] = config["root_dir"] / config["task"]
 
     if config["step"] == "all":
-        config["step"] = "data+sampling+train"
+        config["step"] = "data+sampling+train+test"
 
     config["step"] = config["step"].split("+")
 
@@ -205,8 +198,10 @@ def run():
         with (config["task_dir"] / "config_sampling.pkl").open("wb") as of:
             pickle.dump(config, of)
 
-    if "train" in config["step"]:
+    if "train" in config["step"] or "test" in config["step"]:
         init_wandb(config)
+
+    if "train" in config["step"]:
         german_tz = pytz.timezone("Europe/Berlin")
         current_time_german = datetime.now(german_tz).strftime("%Y%m%d_%H_%M")
 
@@ -217,4 +212,9 @@ def run():
         )
         pipelines[config["task"]]["train"](config)
         with (config["task_dir"] / "config_train.pkl").open("wb") as of:
+            pickle.dump(config, of)
+
+    if "test" in config["step"]:
+        inference.main(config)
+        with (config["task_dir"] / "config_test.pkl").open("wb") as of:
             pickle.dump(config, of)

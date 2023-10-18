@@ -10,6 +10,7 @@ from torch.nn import BCELoss
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.patient_encounter_dataset import PatientEncounterDataset
+from fhirformer.ml.util import get_evaluation_metrics
 
 
 class SingleLabelDataset(PatientEncounterDataset):
@@ -65,7 +66,7 @@ class SingleLabelTrainer(DownstreamTask):
         logits, labels = eval_pred
         probabilities = self.softmax(logits)
         predictions = np.argmax(probabilities, axis=-1)
-        basic_metrics = self.metrics(
+        basic_metrics = get_evaluation_metrics(
             predictions=predictions, labels=labels, single_label=True
         )
         # Safely compute AUC-ROC and AUC-PR
