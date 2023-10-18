@@ -26,6 +26,7 @@ def init_wandb(config):
         mode="disabled" if config["debug"] else "online",
         entity="ship-ai-autopilot",
         group=config["task"].split("_")[1],
+        resume=config["run_name"] if config["model_checkpoint"] else None,
     )
     wandb.run.log_code(".")
 

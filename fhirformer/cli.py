@@ -3,8 +3,8 @@ import logging
 import pickle
 from datetime import datetime
 from pathlib import Path
-import pytz
 
+import pytz
 import wandb
 import yaml
 
@@ -156,6 +156,7 @@ def parse_args_local(config) -> argparse.Namespace:
         default=config["step"],
         help="Plus separated list steps to run. Valid options: data, sampling, train, all.",
     )
+    parser.add_argument("--run_name", type=str, default=None)
 
     return parser.parse_args()
 
