@@ -214,6 +214,9 @@ def run():
         with (config["task_dir"] / "config_train.pkl").open("wb") as of:
             pickle.dump(config, of)
 
+        # Set the model checkpoint to model dir such that it can be used for inference
+        config["model_checkpoint"] = config["model_dir"] / "best"
+
     if "test" in config["step"]:
         inference.main(config)
         with (config["task_dir"] / "config_test.pkl").open("wb") as of:
