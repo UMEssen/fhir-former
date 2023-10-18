@@ -69,6 +69,14 @@ class EncounterDatasetBuilder:
         for resource, resource_dictionary in self.config[
             "text_sampling_column_maps"
         ].items():
+            # Do not use resource if it's not in the "resources_for_task" list
+            if (
+                self.config["resources_for_task"].get(self.config["task"], None)
+                is not None
+                and resource
+                not in self.config["resources_for_task"][self.config["task"]]
+            ):
+                continue
             if self.config["task"] + "_bracket_cols" in resource_dictionary:
                 columns_list = resource_dictionary[
                     self.config["task"] + "_bracket_cols"
