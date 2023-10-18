@@ -15,6 +15,7 @@ step: "all"
 
 # Training params
 use_roformer: False
+batch_size: 2
 num_train_epochs: 250
 max_train_samples: null # 300000
 max_test_samples: null # 300000
