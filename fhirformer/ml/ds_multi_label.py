@@ -45,16 +45,16 @@ class MultiLabelTrainer(DownstreamTask):
         self.tokenize_datasets()
 
     def set_up_dataset_labels(self):
-        if self.config["task"] == "ds_image":
-            self.dataset = self.dataset.map(
-                lambda x: {
-                    "labels": simplify_labels(
-                        x["labels"],
-                        self.config["simplified_labels"][self.config["task"]],
-                    )
-                },
-                desc="Simplifying the labels",
-            )
+        # if self.config["task"] == "ds_image":
+        #     self.dataset = self.dataset.map(
+        #         lambda x: {
+        #             "labels": simplify_labels(
+        #                 x["labels"],
+        #                 self.config["simplified_labels"][self.config["task"]],
+        #             )
+        #         },
+        #         desc="Simplifying the labels",
+        #     )
         # This function gets called within init of the parent class
         labels = self.lb.fit_transform(self.dataset["labels"])
         label_freq = np.sum(labels, axis=0)  # sum over the column (each label)
