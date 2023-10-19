@@ -14,6 +14,7 @@ from fhirformer.data_preprocessing import (
     generate_ds_main_icd,
     generate_ds_readmission_samples,
     generate_pre_train_samples,
+    sentence_extractor,
 )
 from fhirformer.fhir import FHIRExtractor, FHIRFilter, FHIRValidator
 from fhirformer.helper.util import (
@@ -52,7 +53,7 @@ pipelines = {
         "train": pre_train_llm.main,
     },
     "pretrain_documents": {
-        "generate": lambda x: x,
+        "generate": sentence_extractor.main,
         "train": pre_train_llm.main,
     },
 }

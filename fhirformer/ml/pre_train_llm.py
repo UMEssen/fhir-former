@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 import torch
+from datasets import load_dataset
 from torch.nn import functional as F
 from transformers import (
     AutoModelForMaskedLM,
@@ -12,8 +13,6 @@ from transformers import (
     EarlyStoppingCallback,
     EvalPrediction,
     IntervalStrategy,
-    RoFormerForSequenceClassification,
-    RoFormerTokenizerFast,
     Trainer,
     TrainingArguments,
 )
@@ -32,10 +31,6 @@ class Pretrainer:
         self.config = config
         if tokenizer:
             self.tokenizer = tokenizer
-        elif self.config["use_roformer"]:
-            self.tokenizer = RoFormerTokenizerFast.from_pretrained(
-                self.config["model_checkpoint"]
-            )
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.config["model_checkpoint"],
@@ -159,7 +154,13 @@ class Pretrainer:
         if "_fhir" in self.config["task"]:
             fhir_train_dataset, fhir_val_dataset = self.get_fhir_dataset()
         if "_documents" in self.config["task"]:
-            doc_train_dataset, doc_val_dataset = self.get_document_dataset()
+            doc_train_dataset = load_dataset(
+                str(self.config["task_dir"] / "sentences_deduplicated")
+            )["train"]
+            doc_val_dataset = load_dataset(str(self.config["task_dir"] / "sentences"))[
+                "validation"
+            ]
+        #     doc_train_dataset, doc_val_dataset = self.get_document_dataset()
 
         train_dataset = self.unite_datasets(fhir_train_dataset, doc_train_dataset)
         val_dataset = self.unite_datasets(fhir_val_dataset, doc_val_dataset)
@@ -215,12 +216,7 @@ class Pretrainer:
         data_collator = DataCollatorForLanguageModeling(
             tokenizer=self.tokenizer, mlm=True, mlm_probability=0.15
         )
-        if self.config["use_roformer"]:
-            model = RoFormerForSequenceClassification.from_pretrained(
-                self.model_name,
-            )
-        else:
-            model = AutoModelForMaskedLM.from_pretrained(self.model_name)
+        model = AutoModelForMaskedLM.from_pretrained(self.model_name)
 
         # Create the Trainer
         trainer = Trainer(
@@ -229,13 +225,13 @@ class Pretrainer:
             data_collator=data_collator,
             train_dataset=train_dataset,
             eval_dataset=val_dataset,
-            # compute_metrics=self.compute_metrics,
+            compute_metrics=self.compute_metrics,
             callbacks=[
                 TrainingLossLoggingCallback,
                 EarlyStoppingCallback(
                     early_stopping_patience=20,
                     # Number of steps with no improvement after which training will be stopped
-                    early_stopping_threshold=0.0,
+                    early_stopping_threshold=0.00001,
                     # Minimum change in the monitored metric to be considered as an improvement
                 ),
             ],

@@ -29,6 +29,7 @@ weight_decay: {
   "default": 0.01,
   "ds_image": {"default": 2e-6},
   "ds_readmission": {"default": 0.01, "bert-base-german-cased": 0},
+  "pretrain_documents": {"default": 0},
 }
 
 load_from_file: False
