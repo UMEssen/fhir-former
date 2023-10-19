@@ -1,6 +1,5 @@
 import logging
 from multiprocessing import Pool
-from pathlib import Path
 
 from tqdm import tqdm
 
@@ -121,6 +120,6 @@ def main(config):
         return
 
     config["valid_procedure_codes"] = get_valid_labels(
-        config["root_dir"] / Path("ds_image/imaging_study.pkl"), "procedure_code"
+        config["task_dir"] / "imaging_study.pkl", "procedure_code"
     )
     ImageDatasetBuilder(config).prepare(split_ratio=0.8)
