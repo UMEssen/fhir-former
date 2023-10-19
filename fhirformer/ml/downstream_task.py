@@ -1,16 +1,21 @@
+import json
 import logging
 import os
+from pathlib import Path
 
 import numpy as np
 import wandb
-from torch.utils.data import random_split
+from datasets import load_dataset
+from sklearn.model_selection import GroupShuffleSplit
 from transformers import (
     AutoModelForSequenceClassification,
+    AutoTokenizer,
     IntervalStrategy,
     Trainer,
     TrainingArguments,
 )
 
+from fhirformer.helper.util import get_labels_info
 from fhirformer.ml.callbacks import (
     BestScoreLoggingCallback,
     DelayedEarlyStoppingCallback,
@@ -34,19 +39,17 @@ class DownstreamTask:
     def __init__(
         self,
         config,
-        dataset_class,
-        dataset_args,
-        model_checkpoint: str,
-        batch_size: int = 2,
-        epochs: int = 3,
+        problem_type: str,
         train_ratio: float = 0.8,
         prediction_cutoff: float = 0.5,
     ):
         logger.info("Starting downstream task training ...")
         self.config = config
-        self.model_checkpoint = model_checkpoint
-        self.batch_size = batch_size
-        self.epochs = epochs
+        self.model_checkpoint = config["model_checkpoint"]
+        self.batch_size = config["batch_size"]
+        self.epochs = config["num_train_epochs"]
+        self.problem_type = problem_type
+        self.model, self.tokenizer = None, None
 
         if self.config["load_from_file"]:
             logger.info(f"Using model from checkpoint {config['model_checkpoint']}")
@@ -55,24 +58,48 @@ class DownstreamTask:
         self.model_best_path = config["model_dir"] / "best"
 
         # Prepare dataset
-        self.dataset = dataset_class(**dataset_args)
+        split = (
+            "train"
+            if self.config["max_train_samples"] is None
+            else f"train[:{self.config['max_train_samples']}]"
+        )
+        self.dataset = load_dataset(str(config["task_dir"] / "sampled"), split=split)
 
+        self.set_up_dataset_labels()
         # Calculate the lengths of the training and validation sets
         dataset_size = len(self.dataset)
         train_size = int(dataset_size * train_ratio)
         val_size = dataset_size - train_size
 
         # Split the dataset into training and validation sets
-        self.train_dataset, self.val_dataset = random_split(
-            self.dataset, [train_size, val_size]
+        # TODO: Could also made this stratified, it would be better
+        splitter = GroupShuffleSplit(test_size=val_size, n_splits=2, random_state=42)
+        split = splitter.split(
+            self.dataset, groups=[sample["patient_id"] for sample in self.dataset]
         )
-        logger.info(f"Total samples: {len(self.train_dataset)+len(self.val_dataset)}")
+        train_inds, val_inds = next(split)
 
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_checkpoint,
-            num_labels=self.dataset.num_classes,
-            problem_type=self.dataset.problem_type,
+        self.train_dataset = self.dataset.select(train_inds)
+        get_labels_info(
+            labels=self.train_dataset["decoded_labels"]
+            if "decoded_labels" in self.train_dataset.features
+            else self.train_dataset["labels"],
+            additional_string="Train",
         )
+        self.val_dataset = self.dataset.select(val_inds)
+        get_labels_info(
+            labels=self.val_dataset["decoded_labels"]
+            if "decoded_labels" in self.val_dataset.features
+            else self.val_dataset["labels"],
+            additional_string="Validation",
+        )
+
+        logger.info(
+            f"Total samples: {len(self.dataset)}, "
+            f"train: {len(self.train_dataset)}, "
+            f"validation: {len(self.val_dataset)}"
+        )
+
         weight_decay = float(
             get_param_for_task_model(
                 config,
@@ -103,6 +130,40 @@ class DownstreamTask:
             load_best_model_at_end=True,
             metric_for_best_model="loss",
             greater_is_better=False,
+        )
+
+    def set_up_models(self, num_labels: int):
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            self.model_checkpoint,
+            num_labels=num_labels,
+            problem_type=self.problem_type,
+        )
+        model_path = Path(self.config["model_checkpoint"])
+        if model_path.exists() and not (model_path / "tokenizer.json").exists():
+            with (model_path / "config.json").open("rb") as f:
+                model_name = json.load(f)["_name_or_path"]
+
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            tokenizer.save_pretrained(str(model_path))
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_checkpoint"])
+
+    def set_up_dataset_labels(self):
+        # Doesn't do anything, the dataset stays like it was
+        pass
+
+    def tokenize_datasets(self):
+        self.train_dataset = self.tokenize(self.train_dataset)
+        self.val_dataset = self.tokenize(self.val_dataset)
+
+    def tokenize(self, dataset):
+        return dataset.map(
+            lambda examples: self.tokenizer(
+                examples["text"],
+                truncation=self.config["truncation"],
+                padding="max_length",
+                max_length=None,
+            ),
+            desc="Running tokenizer on dataset",
         )
 
     @staticmethod
