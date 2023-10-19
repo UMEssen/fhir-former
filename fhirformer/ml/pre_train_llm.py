@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 
@@ -26,16 +25,13 @@ os.environ["WANDB_LOG_MODEL"] = "end"
 
 
 class Pretrainer:
-    def __init__(self, config, tokenizer=None):
+    def __init__(self, config):
         self.model_name = config["model_checkpoint"]
         self.config = config
-        if tokenizer:
-            self.tokenizer = tokenizer
-        else:
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.config["model_checkpoint"],
-                do_lower_case=False,
-            )
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.config["model_checkpoint"],
+            do_lower_case=False,
+        )
         self.model_best_path = config["model_dir"] / "best"
 
     def compute_metrics(self, eval_pred: EvalPrediction):
@@ -70,18 +66,6 @@ class Pretrainer:
         perplexity /= num_batches
         return {"perplexity": perplexity.item()}
 
-    def get_text(self, phase: str):
-        num_samples = None
-        if self.config["debug"]:
-            num_samples = 100
-        with open(self.config["task_dir"] / f"{phase}.json", "r") as f:
-            train_texts = json.load(f)[:num_samples] if num_samples else json.load(f)
-        return train_texts
-
-    def data_generator(self, phase: str):
-        for text in self.get_text(phase):
-            yield {"text": text["text"]}
-
     def tokenize(self, dataset):
         # (self.config["task_dir"] / "map_cache").mkdir(parents=True, exist_ok=True)
         return dataset.map(
@@ -97,41 +81,6 @@ class Pretrainer:
             #     / f"{self.config['task']}_tokenized_{dataset.split}.arrow"
             # ),
         )
-
-    def get_fhir_dataset(self):
-        from fhirformer.data_preprocessing.fhir_dataset import FHIRDataset
-
-        ds = FHIRDataset(
-            config_name=self.config["task"],
-            data_dir=self.config["task_dir"] / "fhir_data",
-            task_folder=self.config["task_dir"],
-            max_train_samples=self.config["max_train_samples"],
-            max_test_samples=self.config["max_test_samples"],
-        )
-        ds.download_and_prepare(output_dir=self.config["task_dir"] / "fhir_data")
-        data = ds.as_dataset()
-        train_dataset = data["train"]
-        test_dataset = data["test"]
-        logger.info(f"train {len(train_dataset)}, test {len(test_dataset)}")
-        return train_dataset, test_dataset
-
-    def get_document_dataset(self):
-        from fhirformer.data_preprocessing.document_dataset import DocumentDataset
-
-        ds = DocumentDataset(
-            config_name=self.config["task"],
-            data_dir=self.config["task_dir"] / "doc_data",
-            document_folder=self.config["data_dir"] / "documents",
-            task_folder=self.config["task_dir"],
-            max_train_samples=self.config["max_train_samples"],
-            max_test_samples=self.config["max_test_samples"],
-        )
-        ds.download_and_prepare(output_dir=self.config["task_dir"] / "doc_data")
-        data = ds.as_dataset()
-        train_dataset = data["train"]
-        test_dataset = data["test"]
-        logger.info(f"train {len(train_dataset)}, test {len(test_dataset)}")
-        return train_dataset, test_dataset
 
     @staticmethod
     def unite_datasets(fhir_dataset, doc_dataset):
@@ -151,16 +100,31 @@ class Pretrainer:
             None,
             None,
         )
+        split_train = (
+            "train"
+            if self.config["max_train_samples"] is None
+            else f"train[:{self.config['max_train_samples']}]"
+        )
+        split_validation = (
+            "validation"
+            if self.config["max_test_samples"] is None
+            else f"validation[:{self.config['max_test_samples']}]"
+        )
         if "_fhir" in self.config["task"]:
-            fhir_train_dataset, fhir_val_dataset = self.get_fhir_dataset()
+            fhir_train_dataset = load_dataset(
+                str(self.config["task_dir"] / "sampled"), split=split_train
+            )
+            fhir_val_dataset = load_dataset(
+                str(self.config["task_dir"] / "sampled"), split=split_validation
+            )
         if "_documents" in self.config["task"]:
             doc_train_dataset = load_dataset(
-                str(self.config["task_dir"] / "sentences_deduplicated")
-            )["train"]
-            doc_val_dataset = load_dataset(str(self.config["task_dir"] / "sentences"))[
-                "validation"
-            ]
-        #     doc_train_dataset, doc_val_dataset = self.get_document_dataset()
+                str(self.config["task_dir"] / "sentences_deduplicated"),
+                split=split_train,
+            )
+            doc_val_dataset = load_dataset(
+                str(self.config["task_dir"] / "sentences"), split=split_validation
+            )
 
         train_dataset = self.unite_datasets(fhir_train_dataset, doc_train_dataset)
         val_dataset = self.unite_datasets(fhir_val_dataset, doc_val_dataset)
@@ -231,7 +195,7 @@ class Pretrainer:
                 EarlyStoppingCallback(
                     early_stopping_patience=20,
                     # Number of steps with no improvement after which training will be stopped
-                    early_stopping_threshold=0.00001,
+                    early_stopping_threshold=0.0,
                     # Minimum change in the monitored metric to be considered as an improvement
                 ),
             ],
