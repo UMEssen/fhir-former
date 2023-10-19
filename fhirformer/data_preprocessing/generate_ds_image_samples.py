@@ -83,18 +83,12 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 start_inclusive=True,
                 end_inclusive=False,
             )
-            # Get the label
+            # Label explanation can be found here: http://dicomlookup.com/modalities.asp
             labels = (
                 imaging_study_during_enc.resources["imaging_study"][
-                    "procedure_code"
+                    "modality_code"
                 ].unique()
             ).tolist()
-
-            labels = [
-                label
-                for label in labels
-                if label in self.config["valid_procedure_codes"]
-            ]
 
             text = (
                 f"{patient_metadata_str}"
@@ -120,6 +114,8 @@ def main(config):
         return
 
     config["valid_procedure_codes"] = get_valid_labels(
-        config["task_dir"] / "imaging_study.pkl", "procedure_code"
+        config["task_dir"] / "imaging_study.pkl", "modality_code"
     )
+
+    print(config["valid_procedure_codes"])
     ImageDatasetBuilder(config).prepare(split_ratio=0.8)
