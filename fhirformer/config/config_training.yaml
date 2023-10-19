@@ -199,37 +199,3 @@ text_sampling_column_maps: {
         "bracket_cols": ["category_display", "title"]
     }
 }
-
-simplified_labels: {
-  "ds_image": {
-      "CTAB": "CT",
-      "CTGE": "CT",
-      "CTS": "CT",
-      "CTSR": "CT",
-      "CTSSR": "CT",
-      "CTT": "CT",
-      "CTWS": "CT",
-      "PI-CTS": "TODO",
-      "PI-CTTA": "TODO",
-      "KBE": "KR",
-      "KHANDL": "KR",
-      "KKL": "KR",
-      "KKR": "KR",
-      "KLWS": "KR",
-      "KSC": "KR",
-      "KTH": "KR",
-      "KTHL": "KR",
-      "KFR": "TODO",
-      "PCTGK": "PETCT",
-      "MRH": "MR",
-      "MRL": "MR",
-      "MRLE": "MR",
-      "MRS": "MR",
-      "MRUE": "MR",
-      "PI-MRH": "MR",
-      "PI-MRS": "TODO",
-      "SDJOD_NM": "TODO",
-      "SDSONO_NM": "TODO",
-      "THGKSZ_NM": "TODO"
-  }
-}
