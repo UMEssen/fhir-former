@@ -37,7 +37,6 @@ pipelines = {
     },
     "ds_readmission": {
         "generate": generate_ds_readmission_samples.main,
-        # todo sampling is done now train whenever (ds_single_label class ready)...
         "train": ds_single_label.main,
     },
     "ds_main_icd": {
@@ -45,7 +44,7 @@ pipelines = {
         "train": ds_single_label.main,
     },
     "pretrain_fhir_documents": {
-        "generate": generate_pre_train_samples.main,
+        "generate": [generate_pre_train_samples.main, sentence_extractor.main],
         "train": pre_train_llm.main,
     },
     "pretrain_fhir": {
@@ -196,7 +195,11 @@ def run():
     logger.info(f"The outputs will be stored in {config['task_dir']}.")
 
     if "sampling" in config["step"] and is_main_process():
-        pipelines[config["task"]]["generate"](config)
+        if isinstance(pipelines[config["task"]]["generate"], list):
+            for pipeline in pipelines[config["task"]]["generate"]:
+                pipeline(config)
+        else:
+            pipelines[config["task"]]["generate"](config)
         with (config["task_dir"] / "config_sampling.pkl").open("wb") as of:
             pickle.dump(config, of)
 
