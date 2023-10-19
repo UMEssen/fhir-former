@@ -1,4 +1,5 @@
 import logging
+from typing import Dict, List
 
 import numpy as np
 import wandb
@@ -14,6 +15,12 @@ from fhirformer.ml.util import get_evaluation_metrics
 logger = logging.getLogger(__name__)
 
 
+def simplify_labels(
+    labels: List[str], simplify_dictionary: Dict[str, str]
+) -> List[str]:
+    return [simplify_dictionary[label] for label in labels]
+
+
 class MultiLabelTrainer(DownstreamTask):
     def __init__(
         self,
@@ -27,8 +34,9 @@ class MultiLabelTrainer(DownstreamTask):
             problem_type="multi_label_classification",
             prediction_cutoff=prediction_cutoff,
         )
-        # Balance dataset by checking how many labels there are
-        self.make_train_dataset_balanced()
+        if self.config["task"] == "ds_image":
+            # Balance dataset by checking how many labels there are
+            self.make_train_dataset_balanced()
 
         # Set up the model parameters
         self.set_up_models(num_labels=len(self.lb.classes_))
@@ -37,13 +45,21 @@ class MultiLabelTrainer(DownstreamTask):
         self.tokenize_datasets()
 
     def set_up_dataset_labels(self):
+        if self.config["task"] == "ds_image":
+            self.dataset = self.dataset.map(
+                lambda x: {
+                    "labels": simplify_labels(
+                        x["labels"],
+                        self.config["simplified_labels"][self.config["task"]],
+                    )
+                },
+                desc="Simplifying the labels",
+            )
         # This function gets called within init of the parent class
-
         labels = self.lb.fit_transform(self.dataset["labels"])
         label_freq = np.sum(labels, axis=0)  # sum over the column (each label)
         # find top 10 most common classes
         self.top10_classes = label_freq.argsort()[-10:][::-1]
-
         # Transform the labels to one-hot encoding
         self.dataset = self.dataset.rename_column("labels", "decoded_labels")
         self.dataset = self.dataset.map(
