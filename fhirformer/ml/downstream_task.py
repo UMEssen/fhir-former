@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 import wandb
 from datasets import load_dataset
-from sklearn.model_selection import GroupShuffleSplit
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -21,7 +20,7 @@ from fhirformer.ml.callbacks import (
     DelayedEarlyStoppingCallback,
     TrainingLossLoggingCallback,
 )
-from fhirformer.ml.util import get_param_for_task_model
+from fhirformer.ml.util import get_param_for_task_model, split_dataset
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
@@ -40,7 +39,6 @@ class DownstreamTask:
         self,
         config,
         problem_type: str,
-        train_ratio: float = 0.8,
         prediction_cutoff: float = 0.5,
     ):
         logger.info("Starting downstream task training ...")
@@ -48,6 +46,7 @@ class DownstreamTask:
         self.model_checkpoint = config["model_checkpoint"]
         self.batch_size = config["batch_size"]
         self.epochs = config["num_train_epochs"]
+        self.train_ratio = config["train_ratio"]
         self.problem_type = problem_type
         self.model, self.tokenizer = None, None
 
@@ -66,27 +65,16 @@ class DownstreamTask:
         self.dataset = load_dataset(str(config["task_dir"] / "sampled"), split=split)
 
         self.set_up_dataset_labels()
-        # Calculate the lengths of the training and validation sets
-        dataset_size = len(self.dataset)
-        train_size = int(dataset_size * train_ratio)
-        val_size = dataset_size - train_size
 
-        # Split the dataset into training and validation sets
-        # TODO: Could also made this stratified, it would be better
-        splitter = GroupShuffleSplit(test_size=val_size, n_splits=2, random_state=42)
-        split = splitter.split(
-            self.dataset, groups=[sample["patient_id"] for sample in self.dataset]
+        self.train_dataset, self.val_dataset = split_dataset(
+            self.dataset, train_ratio=self.train_ratio
         )
-        train_inds, val_inds = next(split)
-
-        self.train_dataset = self.dataset.select(train_inds)
         get_labels_info(
             labels=self.train_dataset["decoded_labels"]
             if "decoded_labels" in self.train_dataset.features
             else self.train_dataset["labels"],
             additional_string="Train",
         )
-        self.val_dataset = self.dataset.select(val_inds)
         get_labels_info(
             labels=self.val_dataset["decoded_labels"]
             if "decoded_labels" in self.val_dataset.features

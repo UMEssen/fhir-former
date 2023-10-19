@@ -18,7 +18,6 @@ class MultiLabelTrainer(DownstreamTask):
     def __init__(
         self,
         config,
-        train_ratio: float = 0.8,
         prediction_cutoff: float = 0.5,
     ):
         self.lb = MultiLabelBinarizer()
@@ -26,7 +25,6 @@ class MultiLabelTrainer(DownstreamTask):
         super().__init__(
             config=config,
             problem_type="multi_label_classification",
-            train_ratio=train_ratio,
             prediction_cutoff=prediction_cutoff,
         )
         # Balance dataset by checking how many labels there are
