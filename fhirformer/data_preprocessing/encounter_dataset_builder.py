@@ -4,9 +4,9 @@ import pickle
 import random
 from datetime import datetime
 from functools import partial
+from pathlib import Path
 from typing import Any, Dict, List
 
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -17,7 +17,7 @@ from fhirformer.data_preprocessing.util import (
     validate_resources,
 )
 from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read
-from fhirformer.helper.util import get_nondependent_resources
+from fhirformer.helper.util import get_labels_info, get_nondependent_resources
 
 logger = logging.getLogger(__name__)
 
@@ -337,20 +337,7 @@ class EncounterDatasetBuilder:
             )
             return
         labels = [sample["labels"] for sample in samples]
-        if isinstance(labels[0], list):
-            logger.info(
-                f"Average number of labels per sample: {np.mean([len(x) for x in labels]):.2f}"
-            )
-            labels = [item for sublist in labels for item in sublist]
-
-        counts = list(pd.Series(labels).value_counts().to_dict().items())
-        logger.info(
-            f"Label counts {'(' + additional_string + ')' if additional_string else ''}"
-        )
-        if stop_after:
-            counts = counts[:stop_after]
-        for label, count in counts:
-            logger.info(f"{label}: {count}")
+        get_labels_info(labels, additional_string, stop_after)
 
     def global_multiprocessing(self):
         """
@@ -365,6 +352,14 @@ class EncounterDatasetBuilder:
         but it was still very very slow.
         """
         raise NotImplementedError("Please implement this for each specific task")
+
+    @staticmethod
+    def samples_to_jsonl(samples, new_path: Path):
+        new_path.parent.mkdir(parents=True, exist_ok=True)
+        with new_path.open("w") as f:
+            for sample in samples:
+                json.dump(sample, f)
+                f.write("\n")
 
     def prepare(self, split_ratio: float) -> None:
         all_samples_file = self.config["task_dir"] / "all_samples.json"
@@ -391,16 +386,16 @@ class EncounterDatasetBuilder:
 
         self.label_summary(flat_sample_list, "all")
 
-        train_samples, val_samples = self.get_split_samples(
+        train_samples, test_samples = self.get_split_samples(
             flat_sample_list, split_ratio
         )
         self.label_summary(train_samples, "train")
-        self.label_summary(val_samples, "val")
+        self.label_summary(test_samples, "test")
 
         # Save the training samples
-        with open(self.config["task_dir"] / "train.json", "w") as outfile:
-            json.dump(train_samples, outfile)
-
-        # Save the validation samples
-        with open(self.config["task_dir"] / "test.json", "w") as outfile:
-            json.dump(val_samples, outfile)
+        self.samples_to_jsonl(
+            train_samples, self.config["task_dir"] / "sampled" / "train.jsonl"
+        )
+        self.samples_to_jsonl(
+            test_samples, self.config["task_dir"] / "sampled" / "test.jsonl"
+        )

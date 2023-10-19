@@ -1,85 +1,88 @@
-from typing import Dict, Union
+import logging
 
 import numpy as np
-import torch
 import wandb
+from datasets import interleave_datasets
 from scipy.special import expit
 from sklearn.preprocessing import MultiLabelBinarizer
 from torch.nn import BCEWithLogitsLoss
 
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
-from fhirformer.ml.patient_encounter_dataset import PatientEncounterDataset
 from fhirformer.ml.util import get_evaluation_metrics
 
-
-class MultiLabelDataset(PatientEncounterDataset):
-    def __init__(self, config, max_length=None, num_samples=None):
-        super().__init__(config, max_length, num_samples)
-
-        possible_labels = [item["labels"] for item in self.data]
-        # Create a mapping of unique root ICD-10 codes to integers
-        self.config = config
-        self.mlb = MultiLabelBinarizer()
-        self.labels = self.mlb.fit_transform(possible_labels)
-        self.problem_type = "multi_label_classification"
-        self.num_classes = len(self.mlb.classes_)
-
-    def __getitem__(self, idx) -> Dict[str, Union[int, str, torch.Tensor]]:
-        return {
-            **self.prepare_used_items(idx),
-            "label_codes": self.mlb.classes_,
-            "labels": torch.Tensor(self.labels[idx]),
-            "decoded_labels": [
-                self.mlb.classes_[i]
-                for i, label in enumerate(self.labels[idx])
-                if label == 1
-            ],
-        }
+logger = logging.getLogger(__name__)
 
 
 class MultiLabelTrainer(DownstreamTask):
     def __init__(
         self,
         config,
-        model_checkpoint: str,
-        batch_size: int = 2,
-        epochs: int = 2,
         train_ratio: float = 0.8,
         prediction_cutoff: float = 0.5,
     ):
+        self.lb = MultiLabelBinarizer()
+        self.top10_classes = None
         super().__init__(
             config=config,
-            dataset_class=MultiLabelDataset,
-            dataset_args={
-                "config": config,
-                "max_length": None,
-                "num_samples": config["max_train_samples"],
-            },
-            model_checkpoint=model_checkpoint,
-            batch_size=batch_size,
-            epochs=epochs,
+            problem_type="multi_label_classification",
             train_ratio=train_ratio,
             prediction_cutoff=prediction_cutoff,
         )
-        label_freq = np.sum(
-            self.dataset.labels, axis=0
-        )  # sum over the column (each label)
-        self.top10_classes = label_freq.argsort()[-10:][
-            ::-1
-        ]  # find top 10 most common classes
+        # Balance dataset by checking how many labels there are
+        self.make_train_dataset_balanced()
 
+        # Set up the model parameters
+        self.set_up_models(num_labels=len(self.lb.classes_))
         self.model.loss = BCEWithLogitsLoss()  # specify loss function for multi-label
+        self.set_id_to_label(self.lb.classes_)
+        self.tokenize_datasets()
 
-        labels = [label for label in self.train_dataset[0]["label_codes"]]
-        self.set_id_to_label(labels)
+    def set_up_dataset_labels(self):
+        # This function gets called within init of the parent class
+
+        labels = self.lb.fit_transform(self.dataset["labels"])
+        label_freq = np.sum(labels, axis=0)  # sum over the column (each label)
+        # find top 10 most common classes
+        self.top10_classes = label_freq.argsort()[-10:][::-1]
+
+        # Transform the labels to one-hot encoding
+        self.dataset = self.dataset.rename_column("labels", "decoded_labels")
+        self.dataset = self.dataset.map(
+            lambda x: {
+                "labels": self.lb.transform([x["decoded_labels"]])[0].astype(np.float32)
+            },
+            desc="Transforming labels to one-hot encoding",
+        )
+
+    def count_labels(self):
+        frequencies = np.sum(self.train_dataset["labels"], axis=1)
+        zero_count = np.sum(frequencies == 0)
+        more_count = np.sum(frequencies > 0)
+        return more_count, zero_count
+
+    def make_train_dataset_balanced(self):
+        more_count, zero_count = self.count_labels()
+        logger.info(
+            f"Balancing the dataset which has {zero_count} with 0 labels "
+            f"and {more_count} more than 0 labels."
+        )
+        negatives = self.train_dataset.filter(lambda x: sum(x["labels"]) == 0)
+        positives = self.train_dataset.filter(lambda x: sum(x["labels"]) > 0)
+        self.train_dataset = interleave_datasets(
+            [positives, negatives], probabilities=[0.7, 0.3]
+        )
+        more_count, zero_count = self.count_labels()
+        logger.info(
+            f"The dataset was balanced with {zero_count} with 0 labels "
+            f"and {more_count} with more than zero labels."
+        )
 
     def compute_metrics(self, eval_pred):
         logits, labels = eval_pred
         probabilities = expit(logits)  # sigmoid function
-        predictions = (probabilities > self.prediction_cutoff).astype(
-            int
-        )  # threshold at 0.5logits, labels = eval_pred
+        # threshold at 0.5
+        predictions = (probabilities > self.prediction_cutoff).astype(int)
 
         # Compute metrics for top 10 classes
         labels_top10 = labels[:, self.top10_classes]
@@ -107,9 +110,5 @@ class MultiLabelTrainer(DownstreamTask):
 
 @timed
 def main(config):
-    ds_multi = MultiLabelTrainer(
-        config=config,
-        model_checkpoint=config["model_checkpoint"],
-        epochs=config["num_train_epochs"],
-    )
+    ds_multi = MultiLabelTrainer(config=config)
     ds_multi.train()

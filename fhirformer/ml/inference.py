@@ -28,9 +28,7 @@ def convert_labels_to_ids(label, model_config):
 
 @timed
 def main(config, maximum_examples: int = 10):
-    data = load_dataset("json", data_files=str(config["task_dir"] / "test.json"))[
-        "train"
-    ]
+    data = load_dataset(str(config["task_dir"] / "sampled"))["test"]
 
     model_path = Path(config["model_checkpoint"])
     if not (model_path / "tokenizer_config.json").exists():

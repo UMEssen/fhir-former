@@ -34,9 +34,11 @@ def init_wandb(config):
 
 
 def get_evaluation_metrics(
-    predictions: np.ndarray, labels: np.ndarray, single_label=False
+    predictions: np.ndarray,
+    labels: np.ndarray,
+    single_label=False,
+    zero_division=0,
 ):
-    zero_division = 0
     if single_label:
         return {
             "accuracy": (predictions == labels).mean(),
