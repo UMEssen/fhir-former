@@ -35,9 +35,9 @@ def split_dataset(
 
 def init_wandb(config):
     project_name = (
-        "fhirformer" + "_" + "ds"
+        "fhirformer_ds"
         if config["task"].startswith("ds_")
-        else "fhirformer" + "_" + "pretraining"
+        else "fhirformer_pretraining"
     )
 
     wandb.init(
