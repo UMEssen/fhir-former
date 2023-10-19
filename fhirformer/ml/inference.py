@@ -27,8 +27,13 @@ def convert_labels_to_ids(label, model_config):
 
 
 @timed
-def main(config, maximum_examples: int = 10):
-    data = load_dataset(str(config["task_dir"] / "sampled"))["test"]
+def main(config, num_wandb_samples: int = 10):
+    split = (
+        "test"
+        if config["max_test_samples"] is None
+        else f"test[:{config['max_test_samples']}]"
+    )
+    data = load_dataset(str(config["task_dir"] / "sampled"), split=split)
 
     model_path = Path(config["model_checkpoint"])
     if not (model_path / "tokenizer_config.json").exists():
@@ -47,9 +52,6 @@ def main(config, maximum_examples: int = 10):
     )
     # texts = [text for text in KeyDataset(data, "text")]
     labels = [label for label in KeyDataset(data, "labels")]
-    if config["debug"]:
-        # texts = texts[:maximum_examples]
-        labels = labels[:maximum_examples]
     single_label = not isinstance(labels[0], list)
     if single_label:
         binarizer = LabelBinarizer()
@@ -63,9 +65,7 @@ def main(config, maximum_examples: int = 10):
     bin_labels = binarizer.fit_transform(labels)
     predictions = []
     probabilities = []
-    for i, out in enumerate(
-        tqdm(pipe(KeyDataset(data, "text")), total=len(data), desc="Inference")
-    ):
+    for out in tqdm(pipe(KeyDataset(data, "text")), total=len(data), desc="Inference"):
         if single_label:
             predictions.append(out["label"])
             probabilities.append(out["score"])
@@ -78,8 +78,6 @@ def main(config, maximum_examples: int = 10):
                     probas.append(res["score"])
             predictions.append(preds)
             probabilities.append(probas)
-        if config["debug"] and i == maximum_examples - 1:
-            break
     bin_predictions = binarizer.transform(predictions)
     basic_metrics = get_evaluation_metrics(
         labels=bin_labels, predictions=bin_predictions
@@ -101,7 +99,7 @@ def main(config, maximum_examples: int = 10):
         columns=["Text", "Predicted Label", "True Label", "Probabilities"],
     )
 
-    for i in range(maximum_examples):
+    for i in range(num_wandb_samples):
         table.add_data(
             # texts[i],
             str(predictions[i]),
@@ -109,4 +107,4 @@ def main(config, maximum_examples: int = 10):
             str(probabilities[i]),
         )
 
-    wandb.log({f"inference_{maximum_examples}": table})
+    wandb.log({f"inference_{num_wandb_samples}": table})
