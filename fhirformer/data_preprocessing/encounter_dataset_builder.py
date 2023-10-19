@@ -396,6 +396,7 @@ class EncounterDatasetBuilder:
         self.samples_to_jsonl(
             train_samples, self.config["task_dir"] / "sampled" / "train.jsonl"
         )
+        other_split = "validation" if "pretrain" in self.config["task"] else "test"
         self.samples_to_jsonl(
-            test_samples, self.config["task_dir"] / "sampled" / "test.jsonl"
+            test_samples, self.config["task_dir"] / "sampled" / f"{other_split}.jsonl"
         )

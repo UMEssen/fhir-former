@@ -60,24 +60,12 @@ class SentenceExtractor:
         val_df_dict = val_df.to_dict(orient="records")
 
         random.seed(42)
-        for phase, data, max_samples in [
-            ("train", train_df_dict, self.config["max_train_samples"]),
-            ("val", val_df_dict, self.config["max_test_samples"]),
-        ]:
+        for phase, data in [("train", train_df_dict), ("validation", val_df_dict)]:
             with multiprocessing.Pool(processes=self.config["num_processes"]) as pool:
                 logger.info(f"Generating samples for {len(data)} documents.")
-                if max_samples is not None:
-                    selected_data = [
-                        data[i]
-                        for i in random.sample(
-                            range(0, len(train_df_dict)), max_samples
-                        )
-                    ]
-                else:
-                    selected_data = data
                 with (self.sentence_folder / f"{phase}.jsonl").open("w") as of:
                     for res in tqdm(
-                        pool.imap_unordered(self.split_documents, selected_data),
+                        pool.imap_unordered(self.split_documents, data),
                         total=len(data),
                         desc=f"Splitting documents for {phase}",
                     ):
@@ -149,7 +137,7 @@ class SentenceExtractor:
             min_ngram_size=3,
             output_file=self.config["task_dir"]
             / "sentences_deduplicated"
-            / "sentences_train_deduplicated.jsonl",
+            / "train.jsonl",
             split="train",
         )
 
