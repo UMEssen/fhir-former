@@ -3,8 +3,8 @@ task: None
 debug: False
 
 # General params for setting the folders and the extraction
-start_datetime: '2018-01-01'
-end_datetime: '2023-01-01'
+start_datetime: "2018-01-01"
+end_datetime: "2023-01-01"
 run_id: "2018-2023-v1"
 
 #start_datetime: "2021-03-01"
@@ -198,4 +198,38 @@ text_sampling_column_maps: {
         "main_col": "date",
         "bracket_cols": ["category_display", "title"]
     }
+}
+
+simplified_labels: {
+  "ds_image": {
+      "CTAB": "CT",
+      "CTGE": "CT",
+      "CTS": "CT",
+      "CTSR": "CT",
+      "CTSSR": "CT",
+      "CTT": "CT",
+      "CTWS": "CT",
+      "PI-CTS": "TODO",
+      "PI-CTTA": "TODO",
+      "KBE": "KR",
+      "KHANDL": "KR",
+      "KKL": "KR",
+      "KKR": "KR",
+      "KLWS": "KR",
+      "KSC": "KR",
+      "KTH": "KR",
+      "KTHL": "KR",
+      "KFR": "TODO",
+      "PCTGK": "PETCT",
+      "MRH": "MR",
+      "MRL": "MR",
+      "MRLE": "MR",
+      "MRS": "MR",
+      "MRUE": "MR",
+      "PI-MRH": "MR",
+      "PI-MRS": "TODO",
+      "SDJOD_NM": "TODO",
+      "SDSONO_NM": "TODO",
+      "THGKSZ_NM": "TODO"
+  }
 }
