@@ -164,7 +164,7 @@ text_sampling_column_maps: {
         "drop_duplicates": ["patient_id", "imaging_study_id"],
         "main_col": "started",
         "bracket_cols": ["number_series", "number_instances", "description"],
-        "ds_image_bracket_cols": ["number_series", "number_instances", "description", "procedure_code"]
+        "ds_image_bracket_cols": ["number_series", "number_instances", "description", "modality_code", "procedure_code"]
     },
     "biologically_derived_product": {
         "main_col": "ausgabe_datetime",
