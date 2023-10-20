@@ -191,4 +191,4 @@ class DownstreamTask:
 
         trainer.train()
         trainer.save_model(self.model_best_path)
-        self.dataset.tokenizer.save_pretrained(self.model_best_path)
+        self.tokenizer.save_pretrained(self.model_best_path)
