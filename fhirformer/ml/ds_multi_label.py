@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List
 
 import numpy as np
 import wandb
@@ -13,12 +12,6 @@ from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.util import get_evaluation_metrics
 
 logger = logging.getLogger(__name__)
-
-
-def simplify_labels(
-    labels: List[str], simplify_dictionary: Dict[str, str]
-) -> List[str]:
-    return [simplify_dictionary[label] for label in labels]
 
 
 class MultiLabelTrainer(DownstreamTask):
@@ -45,16 +38,6 @@ class MultiLabelTrainer(DownstreamTask):
         self.tokenize_datasets()
 
     def set_up_dataset_labels(self):
-        # if self.config["task"] == "ds_image":
-        #     self.dataset = self.dataset.map(
-        #         lambda x: {
-        #             "labels": simplify_labels(
-        #                 x["labels"],
-        #                 self.config["simplified_labels"][self.config["task"]],
-        #             )
-        #         },
-        #         desc="Simplifying the labels",
-        #     )
         # This function gets called within init of the parent class
         labels = self.lb.fit_transform(self.dataset["labels"])
         label_freq = np.sum(labels, axis=0)  # sum over the column (each label)
