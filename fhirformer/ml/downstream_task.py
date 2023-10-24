@@ -81,11 +81,12 @@ class DownstreamTask:
             else self.val_dataset["labels"],
             additional_string="Validation",
         )
-
         logger.info(
             f"Total samples: {len(self.dataset)}, "
-            f"train: {len(self.train_dataset)}, "
-            f"validation: {len(self.val_dataset)}"
+            f"train: {len(self.train_dataset)} "
+            f"({len(self.train_dataset) / len(self.dataset) * 100:.2f}%), "
+            f"validation: {len(self.val_dataset)} "
+            f"({len(self.val_dataset) / len(self.dataset) * 100:.2f}%)."
         )
 
         weight_decay = float(
