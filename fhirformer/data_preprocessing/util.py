@@ -7,7 +7,6 @@ from typing import List
 import pandas as pd
 
 from fhirformer.data_preprocessing.data_store import DataStore
-from fhirformer.fhir.util import check_and_read
 
 logger = logging.getLogger(__name__)
 
@@ -54,15 +53,6 @@ def get_train_val_split(
         ), f"Training set is too large: {percent_train}"
 
         return train_patients, val_patients
-
-
-def get_valid_labels(path: str, column: str, percentual_cutoff: float = 0.005) -> list:
-    resource = check_and_read(path)
-    codes = resource[column].value_counts(normalize=True)
-    logger.info(f"Number of unique codes: {len(codes)}")
-    filtered_codes = codes[codes > percentual_cutoff].index.tolist()
-    logger.info(f"Number of unique codes after filtering: {len(filtered_codes)}")
-    return filtered_codes
 
 
 def validate_resources(resources, config):

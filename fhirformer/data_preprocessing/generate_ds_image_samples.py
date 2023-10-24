@@ -7,7 +7,6 @@ from fhirformer.data_preprocessing.encounter_dataset_builder import (
     EncounterDatasetBuilder,
 )
 from fhirformer.data_preprocessing.util import (
-    get_valid_labels,
     load_datastore,
     skip_build,
 )
@@ -113,9 +112,4 @@ def main(config):
     if skip_build(config):
         return
 
-    config["valid_procedure_codes"] = get_valid_labels(
-        config["task_dir"] / "imaging_study.pkl", "modality_code"
-    )
-
-    print(config["valid_procedure_codes"])
     ImageDatasetBuilder(config).prepare(split_ratio=0.8)

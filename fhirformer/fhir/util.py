@@ -93,6 +93,18 @@ def group_meta_patients(group_by_tuple: Tuple[str, pd.DataFrame]) -> List[Dict]:
         for patient_id in patient_ids
     ]
 
+def get_valid_labels(column: str, df: pd.DataFrame = None, srs: pd.Series = None,  percentual_cutoff: float = 0.005) -> list:
+    if df is not None:
+        codes = df[column].value_counts(normalize=True)
+    elif srs is not None:
+        codes = srs.value_counts(normalize=True)
+    else:
+        raise ValueError("Either df or srs must be provided")
+    logger.info(f"Number of unique codes: {len(codes)}")
+    filtered_codes = codes[codes > percentual_cutoff].index.tolist()
+    logger.info(f"Number of unique codes after filtering: {len(filtered_codes)}")
+    return filtered_codes
+
 
 def choose_list_items(
     x: Any, set_to_none: bool = False, take_first: bool = False
