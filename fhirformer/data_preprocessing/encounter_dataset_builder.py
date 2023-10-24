@@ -195,7 +195,7 @@ class EncounterDatasetBuilder:
             ("fachabteilungsschluessel", "Fachabteilungsschlüssel"),
             ("aufnahmeanlass_display", "Aufnahmeanlass"),
         ]:
-            if hasattr(enc, col):
+            if hasattr(enc, col) and getattr(enc, col) is not None:
                 enc_dict[name] = getattr(enc, col)
         return self.dict_to_string(enc_dict)
 
