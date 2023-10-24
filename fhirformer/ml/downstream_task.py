@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import wandb
 from datasets import load_dataset
 from transformers import (
@@ -70,7 +69,6 @@ class DownstreamTask:
         self.train_dataset, self.val_dataset = split_dataset(
             self.dataset, train_ratio=self.train_ratio
         )
-
         get_labels_info(
             labels=self.train_dataset["decoded_labels"]
             if "decoded_labels" in self.train_dataset.features

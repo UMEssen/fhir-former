@@ -16,7 +16,7 @@ from fhirformer.data_preprocessing.util import (
     get_train_val_split,
     validate_resources,
 )
-from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read, get_valid_labels
+from fhirformer.fhir.util import OUTPUT_FORMAT, check_and_read
 from fhirformer.helper.util import get_labels_info, get_nondependent_resources
 
 logger = logging.getLogger(__name__)
@@ -308,30 +308,9 @@ class EncounterDatasetBuilder:
         raise NotImplementedError("Please implement this for each specific task")
 
     def get_split_samples(self, sample_list: List[Dict], split_ratio: float = 0.8):
-        # Kill underrepresented labels -> samples
-        labels = [
-            label
-            for sample in sample_list
-            for label in sample.get("labels", [])
-            if label
-        ]
-        valid_labels = set(get_valid_labels("labels", srs=pd.Series(labels)))
-        logger.info(f"Valid labels: {valid_labels}")
-        # filter invalid labels from sample_list
-        filtered_samples = [
-            sample
-            for sample in sample_list
-            if set(sample.get("labels", [])).issubset(valid_labels)
-        ]
-
-        # value counts
-        logging.info(
-            f"All labels counts: \n {pd.DataFrame(filtered_samples).explode('labels')['labels'].value_counts()}"
-        )
-
         # Get unique patient IDs
         train_patients, val_patients = get_train_val_split(
-            [sample["patient_id"] for sample in filtered_samples],
+            [sample["patient_id"] for sample in sample_list],
             sample_by_letter=self.sample_by_letter,
             split_ratio=split_ratio,
         )
@@ -405,7 +384,7 @@ class EncounterDatasetBuilder:
             with open(all_samples_file, "r") as infile:
                 flat_sample_list = json.load(infile)
 
-        self.label_summary(flat_sample_list, "all unfiltered")
+        self.label_summary(flat_sample_list, "all")
 
         train_samples, test_samples = self.get_split_samples(
             flat_sample_list, split_ratio

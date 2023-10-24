@@ -13,7 +13,7 @@ from fhirformer.fhir.util import (
     check_and_read,
     col_to_datetime,
     reduce_cardinality,
-    store_df, get_valid_labels,
+    store_df,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class FHIRFilter:
     # TODO: Datetime filtering for each metrics resource
     @staticmethod
     def filter_date(
-            start: datetime, end: datetime, resource: pd.DataFrame, date_col: str
+        start: datetime, end: datetime, resource: pd.DataFrame, date_col: str
     ) -> pd.DataFrame:
         df = resource[
             ((start <= resource[date_col]) & (resource[date_col] <= end))
@@ -90,7 +90,7 @@ class FHIRFilter:
         # TODO: Decide what is best
         # Take only 50 % of the patients
         pretrain_pats = patients_ids[: len(patients_ids) // 2]
-        downstream_pats = patients_ids[len(patients_ids) // 2:]
+        downstream_pats = patients_ids[len(patients_ids) // 2 :]
 
         # For the five years, because of the sorting these are just as likely as the others
         # pretrain_pats = pat_df[
@@ -116,10 +116,10 @@ class FHIRFilter:
 
     def filter_bdp(self):
         output_path = (
-                self.config["task_dir"] / f"biologically_derived_product{OUTPUT_FORMAT}"
+            self.config["task_dir"] / f"biologically_derived_product{OUTPUT_FORMAT}"
         )
         if (
-                df := self.basic_filtering("biologically_derived_product", save=False)
+            df := self.basic_filtering("biologically_derived_product", save=False)
         ) is None:
             return
 
@@ -141,7 +141,7 @@ class FHIRFilter:
         return df
 
     def filter_by_meta_patients(
-            self, df: pd.DataFrame, is_patient_df: bool = False
+        self, df: pd.DataFrame, is_patient_df: bool = False
     ) -> pd.DataFrame:
         # filtering out patients that are not in the patient table
         pats = check_and_read(
@@ -184,7 +184,7 @@ class FHIRFilter:
         return joined
 
     def basic_filtering(
-            self, name: str, output_name: str = None, save: bool = True, is_patient_df=False
+        self, name: str, output_name: str = None, save: bool = True, is_patient_df=False
     ) -> Optional[pd.DataFrame]:
         output_name = name if output_name is None else output_name
         output_path = self.config["task_dir"] / f"{output_name}{OUTPUT_FORMAT}"
@@ -224,7 +224,7 @@ class FHIRFilter:
     def filter_patient_info(self):
         output_path = self.config["task_dir"] / f"patient{OUTPUT_FORMAT}"
         if (
-                df := self.basic_filtering("patient", save=False, is_patient_df=True)
+            df := self.basic_filtering("patient", save=False, is_patient_df=True)
         ) is None:
             return
 
@@ -254,7 +254,7 @@ class FHIRFilter:
             (pros_filtered["status"] == "completed")
             | (pros_filtered["status"] == "in-progress")
             | (pros_filtered["status"] == "preparation")
-            ]
+        ]
 
         pros_filtered["code"] = reduce_cardinality(
             pros_filtered["code"], set_to_none=True
@@ -352,18 +352,6 @@ class FHIRFilter:
         )
 
         df_img.drop_duplicates(subset=["imaging_study_id"], inplace=True)
-
-        if self.config["task"] == "ds_image":
-            logging.info(f"Number of imaging studies before filtering: {len(df_img)}")
-            df_img.dropna(subset=["modality_code"], inplace=True)
-            valid_img_codes = get_valid_labels(
-                 "modality_code", df_img
-            )
-            df_img = df_img[df_img["modality_code"].isin(valid_img_codes)]
-            logging.info(f"Number of imaging studies after filtering: {len(df_img)}")
-
-        else:
-            logging.info(f"Number of imaging studies: {len(df_img)}")
 
         store_df(df_img, output_path)
 

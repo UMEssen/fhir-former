@@ -4,9 +4,8 @@ from typing import Tuple
 import numpy as np
 import wandb
 from datasets import Dataset
-from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit
 from sklearn.metrics import f1_score, precision_score, recall_score
-from sklearn.model_selection import GroupShuffleSplit, StratifiedShuffleSplit
+from sklearn.model_selection import GroupShuffleSplit
 
 
 def get_param_for_task_model(config, param: str, task: str, model: str):
@@ -25,21 +24,11 @@ def split_dataset(
     train_size = int(dataset_size * train_ratio)
     val_size = dataset_size - train_size
 
-    # splitter = GroupShuffleSplit(test_size=val_size, n_splits=2, random_state=42)
-    # split = splitter.split(dataset, groups=dataset["patient_id"])
-    # train_inds, val_inds = next(split)
-    #
-    # return dataset.select(train_inds), dataset.select(val_inds)
-
     # Split the dataset into training and validation sets
-    # TODO: Could also made this stratified, it would be better --> iterative-stratification
-    # Convert labels to a NumPy array
-    y = np.array(dataset["labels"])
-
-    splitter = MultilabelStratifiedShuffleSplit(
-        n_splits=2, test_size=val_size, random_state=42
-    )
-    train_inds, val_inds = next(splitter.split(dataset["text"], y))
+    # TODO: Could also made this stratified, it would be better
+    splitter = GroupShuffleSplit(test_size=val_size, n_splits=2, random_state=42)
+    split = splitter.split(dataset, groups=dataset["patient_id"])
+    train_inds, val_inds = next(split)
 
     return dataset.select(train_inds), dataset.select(val_inds)
 
