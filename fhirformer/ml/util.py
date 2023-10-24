@@ -18,14 +18,16 @@ def get_param_for_task_model(config, param: str, task: str, model: str):
 
 
 def split_dataset(
-    dataset: Dataset, train_ratio: float = 0.8
+    dataset: Dataset, train_ratio: float = 0.8, ignore_labels: bool = False
 ) -> Tuple[Dataset, Dataset]:
     # TODO: Fix this to make it work with other splits, now it's just for ease of use
     assert train_ratio == 0.8, "Only 80/20 split is supported for now."
-    if "multiclass_labels" in dataset.column_names:
-        labels = dataset["multiclass_labels"]
-    else:
-        labels = dataset["labels"]
+    labels = [0] * len(dataset)
+    if not ignore_labels:
+        if "multiclass_labels" in dataset.column_names:
+            labels = dataset["multiclass_labels"]
+        elif "labels" in dataset.column_names:
+            labels = dataset["labels"]
 
     # Split the dataset into training and validation sets
     splitter = StratifiedGroupKFold(n_splits=5, random_state=42, shuffle=True)
