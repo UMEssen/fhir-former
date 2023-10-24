@@ -70,14 +70,14 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
         ):
             return sample_list
 
-        patient_metadata_str = (
-            f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
-        )
-
         for enc in pat_data.resources["encounter"].itertuples(index=False):
             duration = (enc.end - enc.start).days
             if duration <= 2:
                 continue
+
+            patient_metadata_str = (
+                f"Patient metadata:\n{self.pat_df_to_string(pat_data, enc.start)}\n\n"
+            )
 
             previous_labels = None
             # Generate multiple samples from each encounter

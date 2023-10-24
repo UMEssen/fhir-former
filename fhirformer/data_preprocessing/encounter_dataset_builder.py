@@ -2,7 +2,6 @@ import json
 import logging
 import pickle
 import random
-from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List
@@ -153,10 +152,12 @@ class EncounterDatasetBuilder:
 
         logger.info(f"Finished dividing patient data into {len(splits)} splits.")
 
-    def pat_df_to_string(self, patient_df: pd.DataFrame) -> str:
+    def pat_df_to_string(self, patient_df: pd.DataFrame, encounter_start: str) -> str:
         # Patient corner
         pat_dict = {
-            "age": self.get_age_from_birth_date(patient_df["birth_date"].values[0]),
+            "age": self.get_age_from_birth_date(
+                patient_df["birth_date"].values[0], encounter_start
+            ),
             "gender": patient_df["sex"].values[0],
             "insurance_type": patient_df["insurance_type"].values[0],
         }
@@ -270,8 +271,8 @@ class EncounterDatasetBuilder:
         return all_resources_string.strip()
 
     @staticmethod
-    def get_age_from_birth_date(birth_date: str) -> int:
-        return (datetime.now() - pd.to_datetime(birth_date)).days // 365
+    def get_age_from_birth_date(birth_date: str, encounter_date: str) -> int:
+        return (pd.to_datetime(encounter_date) - pd.to_datetime(birth_date)).days // 365
 
     @staticmethod
     def group_resources(df: pd.DataFrame, remove_duplicates: bool = True):

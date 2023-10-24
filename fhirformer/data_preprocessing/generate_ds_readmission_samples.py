@@ -56,11 +56,9 @@ class ReadmissionDatasetBuilder(EncounterDatasetBuilder):
         if len(pat_data.resources["encounter"]) == 0:
             return []
 
-        patient_metadata_str = (
-            f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
-        )
         sample_list = []
         for enc in pat_data.resources["encounter"].itertuples():
+            patient_metadata_str = f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
             readmission = pat_data.filter_patient(
                 patient_id=patient_id,
                 start_filter_date=enc.end,

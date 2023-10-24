@@ -54,11 +54,9 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
         if len(pat_data.patient_df) == 0 or len(pat_data.resources["encounter"]) == 0:
             return []
 
-        patient_metadata_str = (
-            f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
-        )
         sample_list = []
         for enc in pat_data.resources["encounter"].itertuples(index=False):
+            patient_metadata_str = f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
             # Get data before the beginning of this particular encounter
             resources_before_enc = pat_data.filter_patient(
                 patient_id=patient_id,

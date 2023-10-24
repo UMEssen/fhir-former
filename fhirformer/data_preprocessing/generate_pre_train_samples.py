@@ -60,15 +60,13 @@ class PreTrainDatasetBuilder(EncounterDatasetBuilder):
 
         tumor_string = self.get_tumors(pat_data.resources["episode_of_care"])
 
-        patient_metadata_str = (
-            f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
-        )
         sample_list = []
 
         logger.debug(
             f"Patient {patient_id} has {len(pat_data.resources['encounter'])} encounters"
         )
         for enc in pat_data.resources["encounter"].itertuples(index=False):
+            patient_metadata_str = f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
             duration = (enc.end - enc.start).days
 
             resources_during_enc = pat_data.filter_patient(
