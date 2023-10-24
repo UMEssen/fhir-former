@@ -46,7 +46,8 @@ class MultiLabelTrainer(DownstreamTask):
                     "labels": [
                         lab if lab in selected_labels else "OT" for lab in x["labels"]
                     ]
-                }
+                },
+                desc="Reducing the labels to CR, CT, MR, US, NM, OT",
             )
         # This function gets called within init of the parent class
         labels = self.lb.fit_transform(self.dataset["labels"])
