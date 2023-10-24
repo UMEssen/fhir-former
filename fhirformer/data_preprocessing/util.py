@@ -93,9 +93,11 @@ def skip_build(config: dict) -> bool:
         not config["rerun_cache"]
         and (config["task_dir"] / "sampled" / "train.jsonl").exists()
         and (config["task_dir"] / "sampled" / "test.jsonl").exists()
-        and not config['debug']
+        and not config["debug"]
     ):
-        logger.info(f"Skipping sampling as {config['task_dir']}/sampled/ already exists.")
+        logger.info(
+            f"Skipping sampling as {config['task_dir']}/sampled/ already exists."
+        )
         return True
     else:
         return False
