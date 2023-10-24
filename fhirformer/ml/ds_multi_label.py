@@ -38,6 +38,16 @@ class MultiLabelTrainer(DownstreamTask):
         self.tokenize_datasets()
 
     def set_up_dataset_labels(self):
+        if self.config["task"] == "ds_image":
+            selected_labels = ["CR", "CT", "MR", "US", "NM", "OT"]
+            # TODO: When we are sure that this works, move it to the data preprocessing
+            self.dataset = self.dataset.map(
+                lambda x: {
+                    "labels": [
+                        lab if lab in selected_labels else "OT" for lab in x["labels"]
+                    ]
+                }
+            )
         # This function gets called within init of the parent class
         labels = self.lb.fit_transform(self.dataset["labels"])
         label_freq = np.sum(labels, axis=0)  # sum over the column (each label)
@@ -47,7 +57,18 @@ class MultiLabelTrainer(DownstreamTask):
         self.dataset = self.dataset.rename_column("labels", "decoded_labels")
         self.dataset = self.dataset.map(
             lambda x: {
-                "labels": self.lb.transform([x["decoded_labels"]])[0].astype(np.float32)
+                "labels": self.lb.transform([x["decoded_labels"]])[0].astype(
+                    np.float32
+                ),
+                # TODO: This is currently a trick to make the class count for the stratification
+                #  we can come up with a better solution
+                "multiclass_labels": sum(
+                    [
+                        self.lb.classes_.tolist().index(lab)
+                        * (len(self.lb.classes_) * i)
+                        for i, lab in enumerate(x["decoded_labels"], start=1)
+                    ]
+                ),
             },
             desc="Transforming labels to one-hot encoding",
         )

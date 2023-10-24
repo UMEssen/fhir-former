@@ -5,7 +5,7 @@ import numpy as np
 import wandb
 from datasets import Dataset
 from sklearn.metrics import f1_score, precision_score, recall_score
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import StratifiedGroupKFold
 
 
 def get_param_for_task_model(config, param: str, task: str, model: str):
@@ -20,16 +20,17 @@ def get_param_for_task_model(config, param: str, task: str, model: str):
 def split_dataset(
     dataset: Dataset, train_ratio: float = 0.8
 ) -> Tuple[Dataset, Dataset]:
-    dataset_size = len(dataset)
-    train_size = int(dataset_size * train_ratio)
-    val_size = dataset_size - train_size
+    # TODO: Fix this to make it work with other splits, now it's just for ease of use
+    assert train_ratio == 0.8, "Only 80/20 split is supported for now."
+    if "multiclass_labels" in dataset.column_names:
+        labels = dataset["multiclass_labels"]
+    else:
+        labels = dataset["labels"]
 
     # Split the dataset into training and validation sets
-    # TODO: Could also made this stratified, it would be better
-    splitter = GroupShuffleSplit(test_size=val_size, n_splits=2, random_state=42)
-    split = splitter.split(dataset, groups=dataset["patient_id"])
+    splitter = StratifiedGroupKFold(n_splits=5, random_state=42, shuffle=True)
+    split = splitter.split(dataset, y=labels, groups=dataset["patient_id"])
     train_inds, val_inds = next(split)
-
     return dataset.select(train_inds), dataset.select(val_inds)
 
 
