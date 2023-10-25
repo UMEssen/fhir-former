@@ -17,6 +17,8 @@ class BestScoreLoggingCallback(TrainerCallback):
         "eval_samples_per_second",
         "learning_rate",
         "epoch",
+        "loss",
+        "eval_loss",
     ]
 
     def __init__(self):
