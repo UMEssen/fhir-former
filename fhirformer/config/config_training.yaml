@@ -67,6 +67,10 @@ resources_for_task: {
         "episode_of_care",
         "medication",
     ],
+    "ds_icd": [
+        "condition",
+        "procedure",
+    ],
     "pretrain_documents": [
         "diagnostic_report",
     ],
