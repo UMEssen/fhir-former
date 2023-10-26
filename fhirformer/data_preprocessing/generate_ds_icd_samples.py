@@ -75,9 +75,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
             if duration <= 2:
                 continue
 
-            patient_metadata_str = (
-                f"Patient metadata:\n{self.pat_df_to_string(pat_data, enc.start)}\n\n"
-            )
+            patient_metadata_str = f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
 
             previous_labels = None
             # Generate multiple samples from each encounter
