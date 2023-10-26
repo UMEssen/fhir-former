@@ -88,7 +88,8 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     start_filter_date=date,
                     end_filter_date=enc.end,
                     target_resource="condition",
-                    end_inclusive=False,
+                    start_inclusive=True,
+                    end_inclusive=True,
                 ).resources["condition"]
 
                 labels = (
