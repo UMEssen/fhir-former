@@ -68,10 +68,7 @@ resources_for_task: {
         "procedure",
         "imaging_study",
         "diagnostic_report",
-        "biologically_derived_product",
-        "observation",
         "episode_of_care",
-        "medication",
     ],
     "ds_icd": [
         "condition",
