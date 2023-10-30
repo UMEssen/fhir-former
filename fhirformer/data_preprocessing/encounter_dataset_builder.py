@@ -297,8 +297,8 @@ class EncounterDatasetBuilder:
             ]
 
         date = df["date"].iloc[0]
-        resource = df["resource"].iloc[0]
-        return f"{date} {resource}: {'; '.join(relevant_info)}"
+        # resource = df["resource"].iloc[0]
+        return f"{date}:\n" + "\n".join(relevant_info)
 
     @staticmethod
     def dict_to_string(d):
