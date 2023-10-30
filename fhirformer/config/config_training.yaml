@@ -28,7 +28,7 @@ max_test_samples: null # 300000
 train_ratio: 0.8
 learning_rate: {
   "default": 2e-5,
-  "ds_icd": { "default": 1e-6 },
+  "ds_icd": { "default": 1e-6, "severinsimmler/xlm-roberta-longformer-large-16384": 2e-5 },
   "ds_readmission": { "default": 2e-5 },
   "pretrain_fhir": { "default": 2e-7 },
 }
