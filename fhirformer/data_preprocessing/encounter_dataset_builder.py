@@ -166,8 +166,12 @@ class EncounterDatasetBuilder:
     @staticmethod
     def get_icd_version(condition: pd.DataFrame) -> str:
         if not condition["icd_version"].empty:
-            # TODO: Why do we even put it if it's always the last one?
-            return condition["icd_version"].iloc[-1]
+            # Always take the ICD of the most recent condition such that the model might learn
+            # to predict the ICD code based on the most current condition
+            sorted_condition = condition.sort_values(
+                by="condition_date", ascending=True
+            )
+            return sorted_condition["icd_version"].iloc[-1]
         return "unknown"
 
     @staticmethod
