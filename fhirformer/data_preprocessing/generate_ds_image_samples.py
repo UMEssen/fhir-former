@@ -87,7 +87,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
             text = (
                 f"{patient_metadata_str}"
                 f"Encounter:\n{self.enc_to_string(enc)}\n\n"
-                f"ICD Version: {self.get_icd_version(resources_before_enc['condition'])}\n\n"
+                f"Sample date: {enc.start}\n\n"
                 f"Patient history:\n{pat_hist}"
             )
 
