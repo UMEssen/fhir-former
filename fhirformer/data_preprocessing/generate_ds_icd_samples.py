@@ -76,8 +76,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                 continue
 
             patient_metadata_str = f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
-
-            previous_labels = None
+            previous_history = None
             # Generate multiple samples from each encounter
             for date in pd.date_range(
                 enc.start + pd.Timedelta(days=1), enc.end - pd.Timedelta(days=1)
@@ -111,24 +110,21 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                 if len(unique_labels) == 0:
                     raise ValueError(f"No labels were generated for {labels}.")
 
-                # Only create a sample if we have new labels
-                if previous_labels == unique_labels:
-                    continue
-                previous_labels = unique_labels
                 resources_until_date = pat_data.filter_patient(
                     patient_id=patient_id,
                     end_filter_date=date,
                     end_inclusive=False,
                 ).resources
                 pat_hist = self.pat_history_to_string(resources_until_date)
-
-                if not pat_hist:
+                # Skip if there are no infos or if the infos are the same as the previous
+                if not pat_hist or pat_hist == previous_history:
                     continue
-
+                previous_history = pat_hist
                 text = (
                     f"{patient_metadata_str}"
                     f"Encounter:\n{self.enc_to_string(enc)}\n\n"
-                    f"Duration: {duration}\n\n"
+                    f"Duration: {duration}\n"
+                    f"Sample date: {date}\n\n"
                     f"ICD Version: {self.get_icd_version(resources_until_date['condition'])}\n\n"
                     f"Patient journey:\n{pat_hist}"
                 )
