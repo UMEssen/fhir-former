@@ -46,7 +46,11 @@ def init_wandb(config):
     wandb.init(
         tags=["baseline"],
         project=project_name,
-        name=config["model_name"] + "_" + config["run_id"],
+        name=config["model_name"]
+        + "_"
+        + config["run_id"]
+        + "_sampling_"
+        + config["data_id"],
         mode="disabled" if config["debug"] else "online",
         entity="ship-ai-autopilot",
         group=config["task"].split("_")[1],

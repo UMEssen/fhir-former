@@ -33,7 +33,7 @@ def main(config, num_wandb_samples: int = 10):
         if config["max_test_samples"] is None
         else f"test[:{config['max_test_samples']}]"
     )
-    data = load_dataset(str(config["task_dir"] / "sampled"), split=split)
+    data = load_dataset(str(config["sample_dir"]), split=split)
 
     model_path = Path(config["model_checkpoint"])
     if not (model_path / "tokenizer_config.json").exists():

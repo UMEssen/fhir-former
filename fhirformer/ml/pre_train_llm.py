@@ -112,10 +112,10 @@ class Pretrainer:
         )
         if "_fhir" in self.config["task"]:
             fhir_train_dataset = load_dataset(
-                str(self.config["task_dir"] / "sampled"), split=split_train
+                str(self.config["sample_dir"]), split=split_train
             )
             fhir_val_dataset = load_dataset(
-                str(self.config["task_dir"] / "sampled"), split=split_validation
+                str(self.config["sample_dir"]), split=split_validation
             )
         if "_documents" in self.config["task"]:
             doc_train_dataset = load_dataset(

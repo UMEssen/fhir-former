@@ -46,7 +46,9 @@ class EncounterDatasetBuilder:
         self.filtered_text_sampling_column_maps = get_column_map_txt_resources(
             self.config, self.resources_for_task
         )
-        self.ds_folder = self.config["task_dir"] / "data_stores"
+        self.ds_folder = (
+            self.config["task_dir"] / f"data_stores_{self.config['data_id']}"
+        )
         self.set_up_data(num_splits=100)
 
     def set_up_data(
@@ -367,7 +369,9 @@ class EncounterDatasetBuilder:
                 f.write("\n")
 
     def prepare(self, split_ratio: float) -> None:
-        all_samples_file = self.config["task_dir"] / "all_samples.json"
+        all_samples_file = (
+            self.config["task_dir"] / f"all_samples_{self.config['data_id']}.json"
+        )
         if not all_samples_file.exists():
             logger.info("Starting sample generation...")
             results = self.global_multiprocessing()
@@ -398,10 +402,8 @@ class EncounterDatasetBuilder:
         self.label_summary(test_samples, "test")
 
         # Save the training samples
-        self.samples_to_jsonl(
-            train_samples, self.config["task_dir"] / "sampled" / "train.jsonl"
-        )
+        self.samples_to_jsonl(train_samples, self.config["sample_dir"] / "train.jsonl")
         other_split = "validation" if "pretrain" in self.config["task"] else "test"
         self.samples_to_jsonl(
-            test_samples, self.config["task_dir"] / "sampled" / f"{other_split}.jsonl"
+            test_samples, self.config["sample_dir"] / f"{other_split}.jsonl"
         )

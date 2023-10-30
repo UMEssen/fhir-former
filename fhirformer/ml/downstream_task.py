@@ -62,7 +62,7 @@ class DownstreamTask:
             if self.config["max_train_samples"] is None
             else f"train[:{self.config['max_train_samples']}]"
         )
-        self.dataset = load_dataset(str(config["task_dir"] / "sampled"), split=split)
+        self.dataset = load_dataset(str(config["sample_dir"]), split=split)
 
         self.set_up_dataset_labels()
 

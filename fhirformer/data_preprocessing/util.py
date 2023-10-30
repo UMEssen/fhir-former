@@ -91,12 +91,12 @@ def get_patient_ids_lists(store_list: List["DataStore"]):
 def skip_build(config: dict) -> bool:
     if (
         not config["rerun_cache"]
-        and (config["task_dir"] / "sampled" / "train.jsonl").exists()
-        and (config["task_dir"] / "sampled" / "test.jsonl").exists()
+        and (config["sample_dir"] / "train.jsonl").exists()
+        and (config["sample_dir"] / "test.jsonl").exists()
         and not config["debug"]
     ):
         logger.info(
-            f"Skipping sampling as {config['task_dir']}/sampled/ already exists."
+            f"Skipping sampling as it already exists in {config['sample_dir']}."
         )
         return True
     else:
