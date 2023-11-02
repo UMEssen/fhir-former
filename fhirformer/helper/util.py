@@ -51,7 +51,9 @@ def name_from_model(
             raise ValueError(f"Model {model_name} does not exist.")
         load = True
     elif Path(model_name).exists():
-        name = Path(model_name).parent.parent.name
+        name = Path(model_name).name
+        if name == "best" or name.startswith("checkpoint"):
+            name = Path(model_name).parent.parent.name
         plain_name = name.replace("_", "/")
         load = True
     else:

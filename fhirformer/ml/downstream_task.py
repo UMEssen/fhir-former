@@ -50,7 +50,7 @@ class DownstreamTask:
         self.problem_type = problem_type
         self.model, self.tokenizer = None, None
 
-        if self.config["load_from_file"]:
+        if self.config["loaded_model"]:
             logger.info(f"Using model from checkpoint {config['model_checkpoint']}")
             wandb.run.tags = wandb.run.tags + ("pretrained",)
         self.prediction_cutoff = prediction_cutoff
@@ -94,7 +94,7 @@ class DownstreamTask:
                 config,
                 "weight_decay",
                 self.config["task"],
-                self.config["model_checkpoint"],
+                self.config["model"],
             )
         )
         learning_rate = float(
@@ -102,7 +102,7 @@ class DownstreamTask:
                 config,
                 "learning_rate",
                 self.config["task"],
-                self.config["model_checkpoint"],
+                self.config["model"],
             )
         )
         self.training_arguments = dict(
