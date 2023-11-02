@@ -50,7 +50,7 @@ def init_wandb(config):
         + "_"
         + config["run_id"]
         + "_sampling_"
-        + config["data_id"],
+        + config["data_id"][config["task"]],
         mode="disabled" if config["debug"] else "online",
         entity="ship-ai-autopilot",
         group=config["task"].split("_")[1],
