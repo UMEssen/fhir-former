@@ -124,7 +124,6 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     f"{patient_metadata_str}"
                     f"Encounter:\n{self.enc_to_string(enc)}\n\n"
                     f"Duration: {duration}\n"
-                    f"Sample date: {date}\n\n"
                     f"ICD Version: {self.get_icd_version(resources_until_date['condition'])}\n\n"
                     f"Patient journey:\n{pat_hist}"
                 )
@@ -133,6 +132,8 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                     {
                         "patient_id": str(patient_id),
                         "encounter_id": enc.encounter_id,
+                        "encounter_start": str(enc.start),
+                        "sample_start": str(date),
                         "text": text,
                         "labels": unique_labels,
                     }
