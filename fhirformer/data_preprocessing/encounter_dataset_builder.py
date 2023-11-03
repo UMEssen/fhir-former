@@ -371,7 +371,8 @@ class EncounterDatasetBuilder:
 
     def prepare(self, split_ratio: float) -> None:
         all_samples_file = (
-            self.config["task_dir"] / f"all_samples_{self.config['data_id']}.json"
+            self.config["task_dir"]
+            / f"all_samples_{self.config['data_id'][self.config['task']]}.json"
         )
         if not all_samples_file.exists():
             logger.info("Starting sample generation...")
