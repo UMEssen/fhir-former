@@ -65,65 +65,46 @@ def get_evaluation_metrics(
     single_label=False,
     zero_division=0,
 ):
+    metrics = {
+        "accuracy": (predictions == labels).mean(),
+    }
     if single_label:
-        return {
-            "accuracy": (predictions == labels).mean(),
-            "precision": precision_score(
-                labels,
-                predictions,
-                zero_division=zero_division,
-            ),
-            "recall": recall_score(
-                labels,
-                predictions,
-                zero_division=zero_division,
-            ),
-            "f1": f1_score(
-                labels,
-                predictions,
-                zero_division=zero_division,
-            ),
-        }
+        metrics["precision"] = precision_score(
+            labels,
+            predictions,
+            zero_division=zero_division,
+        )
+        metrics["recall"] = recall_score(
+            labels,
+            predictions,
+            zero_division=zero_division,
+        )
+        metrics["f1"] = f1_score(
+            labels,
+            predictions,
+            zero_division=zero_division,
+        )
     else:
-        return {
-            "accuracy": (predictions == labels).mean(),
-            "macro_precision": precision_score(
+        for average in ["macro", "micro", "weighted"]:
+            metrics[f"{average}_precision"] = precision_score(
                 labels,
                 predictions,
-                average="macro",
+                average=average,
                 zero_division=zero_division,
-            ),
-            "macro_recall": recall_score(
+            )
+            metrics[f"{average}_recall"] = recall_score(
                 labels,
                 predictions,
-                average="macro",
+                average=average,
                 zero_division=zero_division,
-            ),
-            "macro_f1": f1_score(
+            )
+            metrics[f"{average}_f1"] = f1_score(
                 labels,
                 predictions,
-                average="macro",
+                average=average,
                 zero_division=zero_division,
-            ),
-            "weighted_precision": precision_score(
-                labels,
-                predictions,
-                average="weighted",
-                zero_division=zero_division,
-            ),
-            "weighted_recall": recall_score(
-                labels,
-                predictions,
-                average="weighted",
-                zero_division=zero_division,
-            ),
-            "weighted_f1": f1_score(
-                labels,
-                predictions,
-                average="weighted",
-                zero_division=zero_division,
-            ),
-        }
+            )
+    return metrics
 
 
 def resolve_paths(input_dict):
