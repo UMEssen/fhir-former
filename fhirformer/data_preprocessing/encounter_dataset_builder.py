@@ -47,7 +47,8 @@ class EncounterDatasetBuilder:
             self.config, self.resources_for_task
         )
         self.ds_folder = (
-            self.config["task_dir"] / f"data_stores_{self.config['data_id']}"
+            self.config["task_dir"]
+            / f"data_stores_{self.config['data_id'][self.config['task']]}"
         )
         self.set_up_data(num_splits=100)
 
