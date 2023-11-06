@@ -89,7 +89,9 @@ class MultiLabelTrainer(DownstreamTask):
         negatives = self.train_dataset.filter(lambda x: sum(x["labels"]) == 0)
         positives = self.train_dataset.filter(lambda x: sum(x["labels"]) > 0)
         self.train_dataset = interleave_datasets(
-            [positives, negatives], probabilities=[0.7, 0.3]
+            [positives, negatives],
+            probabilities=[0.9, 0.1],
+            seed=42,
         )
         more_count, zero_count = self.count_labels()
         logger.info(
