@@ -18,8 +18,9 @@ run_id: "2018-2023-v1"
 root_dir: "/data"
 step: "all"
 data_id: {
-    "ds_image": "V4_sliding_nonull",
+    "ds_image": "V4_nosliding_withnull",
     "ds_icd": "V4",
+    "pretrain_fhir": "V4",
 }
 
 # Training params
@@ -173,8 +174,8 @@ text_sampling_column_maps: {
     "imaging_study": {
         "drop_duplicates": ["patient_id", "imaging_study_id"],
         "main_col": "started",
-        "bracket_cols": ["number_series", "number_instances", "description"],
-        "ds_image_bracket_cols": ["number_series", "number_instances", "description", "modality_code", "procedure_code"]
+        "bracket_cols": ["description", "procedure_code"],
+        "ds_image_bracket_cols": ["description", "modality_code", "procedure_code"]
     },
     "biologically_derived_product": {
         "main_col": "ausgabe_datetime",
