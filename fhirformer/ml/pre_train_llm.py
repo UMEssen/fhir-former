@@ -5,11 +5,10 @@ import numpy as np
 import torch
 from datasets import load_dataset
 from torch.nn import functional as F
-from transformers import (
+from transformers import (  # EarlyStoppingCallback,
     AutoModelForMaskedLM,
     AutoTokenizer,
     DataCollatorForLanguageModeling,
-    EarlyStoppingCallback,
     EvalPrediction,
     IntervalStrategy,
     Trainer,
@@ -31,6 +30,7 @@ class Pretrainer:
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.config["model_checkpoint"],
             do_lower_case=False,
+            device_map="auto",
         )
         self.model_best_path = config["model_dir"] / "best"
 
@@ -93,13 +93,17 @@ class Pretrainer:
         else:
             raise ValueError("No dataset found")
 
-    def build_datasets(self):
+    def build_datasets(self, disable_validation: bool = False):
         fhir_train_dataset, fhir_val_dataset, doc_train_dataset, doc_val_dataset = (
             None,
             None,
             None,
             None,
         )
+        if disable_validation:
+            logger.info(
+                "The validation is disabled and no validation set will be computed."
+            )
         split_train = (
             "train"
             if self.config["max_train_samples"] is None
@@ -114,27 +118,35 @@ class Pretrainer:
             fhir_train_dataset = load_dataset(
                 str(self.config["sample_dir"]), split=split_train
             )
-            fhir_val_dataset = load_dataset(
-                str(self.config["sample_dir"]), split=split_validation
-            )
+            if not disable_validation:
+                fhir_val_dataset = load_dataset(
+                    str(self.config["sample_dir"]), split=split_validation
+                )
         if "_documents" in self.config["task"]:
             doc_train_dataset = load_dataset(
                 str(self.config["task_dir"] / "sentences_deduplicated"),
                 split=split_train,
             )
-            doc_val_dataset = load_dataset(
-                str(self.config["task_dir"] / "sentences"), split=split_validation
-            )
+            if not disable_validation:
+                doc_val_dataset = load_dataset(
+                    str(self.config["task_dir"] / "sentences"), split=split_validation
+                )
 
         train_dataset = self.unite_datasets(fhir_train_dataset, doc_train_dataset)
-        val_dataset = self.unite_datasets(fhir_val_dataset, doc_val_dataset)
+        val_dataset = None
+        if not disable_validation:
+            val_dataset = self.unite_datasets(fhir_val_dataset, doc_val_dataset)
 
         assert (
             len(train_dataset) > 0
         ), "Something went wrong with the generation of the samples."
-        logger.info(f"Total samples: {len(train_dataset) + len(val_dataset)}")
+        sum_val = len(train_dataset) + (len(val_dataset) if val_dataset else 0)
+        logger.info(f"Total samples: {sum_val}")
 
-        return self.tokenize(train_dataset), self.tokenize(val_dataset)
+        return (
+            self.tokenize(train_dataset),
+            self.tokenize(val_dataset) if val_dataset else None,
+        )
 
     def pretrain(self):
         weight_decay = float(
@@ -151,27 +163,25 @@ class Pretrainer:
             output_dir=self.config["model_dir"],
             overwrite_output_dir=True,
             num_train_epochs=self.config["num_train_epochs"],
-            per_device_train_batch_size=1,  # per device
-            per_device_eval_batch_size=1,  # per device
+            per_device_train_batch_size=self.config["batch_size"],  # per device
             save_total_limit=2,
-            load_best_model_at_end=True,
-            eval_accumulation_steps=self.config["eval_accumulation_steps"],  # tune
             report_to="wandb",
-            evaluation_strategy="epoch",
             learning_rate=learning_rate,
             weight_decay=weight_decay,
             save_strategy=IntervalStrategy.EPOCH,
             fp16=False,
-            metric_for_best_model="loss",
-            greater_is_better=False,
+            # These values below are all needed for early stopping, loading the best model at end
+            # and evaluation
+            #
+            # eval_accumulation_steps=self.config["eval_accumulation_steps"],  # tune
+            # evaluation_strategy="epoch",
+            # load_best_model_at_end=True,
+            # per_device_eval_batch_size=1,  # per device
+            # metric_for_best_model="loss",
+            # greater_is_better=False,
         )
-        # For some reason the main_process context manager does not work correctly for a lot of data
-        # So we first run it to make sure that a cache exists only with the main process
-        # and then we run it again for each process to just read the cache
-        # if is_main_process():
-        #     _, _ = self.build_datasets()
 
-        train_dataset, val_dataset = self.build_datasets()
+        train_dataset, val_dataset = self.build_datasets(disable_validation=True)
 
         logger.info("Starting pre-training...")
         self.model_best_path.mkdir(parents=True, exist_ok=True)
@@ -188,20 +198,21 @@ class Pretrainer:
             args=training_args,
             data_collator=data_collator,
             train_dataset=train_dataset,
-            eval_dataset=val_dataset,
+            # eval_dataset=val_dataset,
             # compute_metrics=self.compute_metrics,
             callbacks=[
                 TrainingLossLoggingCallback,
-                EarlyStoppingCallback(
-                    early_stopping_patience=20,
-                    # Number of steps with no improvement after which training will be stopped
-                    early_stopping_threshold=0.0,
-                    # Minimum change in the monitored metric to be considered as an improvement
-                ),
+                # EarlyStoppingCallback(
+                #     early_stopping_patience=20,
+                #     # Number of steps with no improvement after which training will be stopped
+                #     early_stopping_threshold=0.0,
+                #     # Minimum change in the monitored metric to be considered as an improvement
+                # ),
             ],
         )
         torch.cuda.empty_cache()
         trainer.train()
+        # Model best is currently not the best because we only save the last model
         trainer.save_model(self.model_best_path)
         self.tokenizer.save_pretrained(self.model_best_path)
 
