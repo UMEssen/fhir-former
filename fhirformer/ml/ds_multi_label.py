@@ -88,7 +88,7 @@ class MultiLabelTrainer(DownstreamTask):
         )
         if zero_count == 0 or more_count == 0:
             logger.info(
-                "The dataset cannot be balance because one option only has zeros."
+                "The dataset cannot be balanced because one option only has zeros."
             )
             return
         negatives = self.train_dataset.filter(lambda x: sum(x["labels"]) == 0)
