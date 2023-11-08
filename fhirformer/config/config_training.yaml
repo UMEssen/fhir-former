@@ -21,6 +21,7 @@ data_id: {
     "ds_image": "V4_nosliding_withnull",
     "ds_icd": "V4",
     "pretrain_fhir": "V4",
+    "pretrain_documents": "none",
 }
 
 # Training params
