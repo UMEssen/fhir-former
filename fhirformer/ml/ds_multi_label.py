@@ -86,6 +86,11 @@ class MultiLabelTrainer(DownstreamTask):
             f"Balancing the dataset which has {zero_count} with 0 labels "
             f"and {more_count} more than 0 labels."
         )
+        if zero_count == 0 or more_count == 0:
+            logger.info(
+                "The dataset cannot be balance because one option only has zeros."
+            )
+            return
         negatives = self.train_dataset.filter(lambda x: sum(x["labels"]) == 0)
         positives = self.train_dataset.filter(lambda x: sum(x["labels"]) > 0)
         self.train_dataset = interleave_datasets(
