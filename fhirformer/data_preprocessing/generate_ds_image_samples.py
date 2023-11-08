@@ -184,10 +184,8 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
             return []
 
         if "nosliding" in self.config["data_id"]["ds_image"]:
-            logger.info("Generating samples for ds_image without sliding window.")
             return self.process_patient_one_day_after(patient_id, pat_data)
         else:
-            logger.info("Generating samples for ds_image using a sliding window.")
             return self.process_patient_sliding_window(patient_id, pat_data)
 
 
@@ -195,4 +193,8 @@ def main(config):
     if skip_build(config):
         return
 
+    if "nosliding" in config["data_id"]["ds_image"]:
+        logger.info("Generating samples for ds_image without sliding window.")
+    else:
+        logger.info("Generating samples for ds_image using a sliding window.")
     ImageDatasetBuilder(config).prepare(split_ratio=0.8)
