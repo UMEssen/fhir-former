@@ -189,7 +189,7 @@ class Pretrainer:
             data_collator=data_collator,
             train_dataset=train_dataset,
             eval_dataset=val_dataset,
-            compute_metrics=self.compute_metrics,
+            # compute_metrics=self.compute_metrics,
             callbacks=[
                 TrainingLossLoggingCallback,
                 EarlyStoppingCallback(
