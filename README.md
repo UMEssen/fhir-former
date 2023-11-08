@@ -24,7 +24,7 @@ python -m fhirformer --task [pretrain_fhir|pretrain_documents|pretrain_fhir_docu
 
 distributed training
 ```
-CUDA_VISIBLE_DEVICES=0,1,2 \
-    torchrun --nproc_per_node 3 -m \
+accelerate config --config_file conf.yaml
+accelerate launch --config_file conf.yaml -m \
     fhirformer --task [pretrain_fhir|pretrain_documents|pretrain_fhir_documents|ds_icd|ds_image|ds_main_diag]
 ```
