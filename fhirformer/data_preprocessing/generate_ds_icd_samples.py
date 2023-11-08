@@ -77,6 +77,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
 
             patient_metadata_str = f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
             previous_history = None
+            previous_labels = None
             # Generate multiple samples from each encounter
             for date in pd.date_range(
                 enc.start + pd.Timedelta(days=1), enc.end - pd.Timedelta(days=1)
@@ -117,9 +118,12 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                 ).resources
                 pat_hist = self.pat_history_to_string(resources_until_date)
                 # Skip if there are no infos or if the infos are the same as the previous
-                if not pat_hist or pat_hist == previous_history:
+                if not pat_hist or (
+                    pat_hist == previous_history and previous_labels == unique_labels
+                ):
                     continue
                 previous_history = pat_hist
+                previous_labels = unique_labels
                 text = (
                     f"{patient_metadata_str}"
                     f"Encounter:\n{self.enc_to_string(enc)}\n\n"
@@ -134,6 +138,7 @@ class ICD10DatasetBuilder(EncounterDatasetBuilder):
                         "encounter_id": enc.encounter_id,
                         "encounter_start": str(enc.start),
                         "sample_start": str(date),
+                        "duration": duration,
                         "text": text,
                         "labels": unique_labels,
                     }

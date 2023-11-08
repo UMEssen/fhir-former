@@ -46,19 +46,11 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 break
         return results
 
-    def process_patient_sliding_window(self, patient_id: str):
+    def process_patient_sliding_window(self, patient_id: str, pat_data: pd.DataFrame):
         """
         - Patient needs at least one imaging study and one encounter
         """
         pat_data = datastore.filter_patient(patient_id=patient_id)
-
-        if (
-            len(pat_data.patient_df) == 0
-            or len(pat_data.resources["encounter"]) == 0
-            or len(pat_data.resources["imaging_study"]) == 0
-        ):
-            return []
-
         sample_list = []
         for enc in pat_data.resources["encounter"].itertuples(index=False):
             duration = (enc.end - enc.start).days
@@ -69,6 +61,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 f"\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
             )
             previous_history = None
+            previous_labels = None
             # Generate multiple samples from each encounter
             for date in pd.date_range(
                 enc.start + pd.Timedelta(days=1), enc.end - pd.Timedelta(days=1)
@@ -89,9 +82,8 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                     ].unique()
                 ).tolist()
 
-                # # Currently skip if no labels
-                # if len(labels) == 0:
-                #     continue
+                if "nonull" in self.config["data_id"]["ds_image"] and len(labels) == 0:
+                    continue
 
                 resources_before_date = pat_data.filter_patient(
                     patient_id=patient_id,
@@ -100,8 +92,12 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 ).resources
                 pat_hist = self.pat_history_to_string(resources_before_date)
 
-                if not pat_hist or pat_hist == previous_history:
+                if not pat_hist or (
+                    pat_hist == previous_history and labels == previous_labels
+                ):
                     continue
+
+                previous_labels = labels
                 previous_history = pat_hist
 
                 text = (
@@ -113,23 +109,16 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                     {
                         "patient_id": str(patient_id),
                         "encounter_id": enc.encounter_id,
-                        "encounter_start_date": str(enc.start),
-                        "sample_date": str(date),
+                        "encounter_start": str(enc.start),
+                        "sample_start": str(date),
+                        "duration": (enc.end - enc.start).days,
                         "text": text,
                         "labels": labels,
                     }
                 )
         return sample_list
 
-    def process_patient(self, patient_id: str):
-        """
-        - Patient needs at least one imaging study and one encounter
-        """
-        pat_data = datastore.filter_patient(patient_id=patient_id)
-
-        if len(pat_data.patient_df) == 0 or len(pat_data.resources["encounter"]) == 0:
-            return []
-
+    def process_patient_one_day_after(self, patient_id: str, pat_data: pd.DataFrame):
         sample_list = []
         for enc in pat_data.resources["encounter"].itertuples(index=False):
             patient_metadata_str = f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
@@ -161,10 +150,12 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 ].unique()
             ).tolist()
 
+            if "nonull" in self.config["data_id"]["ds_image"] and len(labels) == 0:
+                continue
+
             text = (
                 f"{patient_metadata_str}"
                 f"Encounter:\n{self.enc_to_string(enc)}\n\n"
-                f"Sample date: {enc.start}\n\n"
                 f"Patient history:\n{pat_hist}"
             )
 
@@ -174,11 +165,30 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                     "encounter_id": enc.encounter_id,
                     "encounter_start": str(enc.start),
                     "sample_start": str(sample_start),
+                    "duration": (enc.end - enc.start).days,
                     "text": text,
                     "labels": labels,
                 }
             )
         return sample_list
+
+    def process_patient(self, patient_id: str):
+        pat_data = datastore.filter_patient(patient_id=patient_id)
+
+        # Skip patients that have no encounters or no imaging studies
+        if (
+            len(pat_data.patient_df) == 0
+            or len(pat_data.resources["encounter"]) == 0
+            or len(pat_data.resources["imaging_study"]) == 0
+        ):
+            return []
+
+        if "nosliding" in self.config["data_id"]["ds_image"]:
+            logger.info("Generating samples for ds_image without sliding window.")
+            return self.process_patient_one_day_after(patient_id, pat_data)
+        else:
+            logger.info("Generating samples for ds_image using a sliding window.")
+            return self.process_patient_sliding_window(patient_id, pat_data)
 
 
 def main(config):

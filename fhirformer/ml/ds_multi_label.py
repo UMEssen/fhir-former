@@ -39,7 +39,7 @@ class MultiLabelTrainer(DownstreamTask):
 
     def set_up_dataset_labels(self):
         if self.config["task"] == "ds_image":
-            selected_labels = ["CR", "CT", "MR", "US", "NM", "OT"]
+            selected_labels = ["CR", "CT", "MR", "US", "XA", "NM", "OT"]
             # TODO: When we are sure that this works, move it to the data preprocessing
             self.dataset = self.dataset.map(
                 lambda x: {
