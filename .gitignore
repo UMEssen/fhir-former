@@ -14,4 +14,4 @@ jupyter/sampling_test.ipynb
 jupyter/tokenizer_test.ipynb
 tmp.sh
 fhirformer/config/config_training.yaml
-jupyter/deb.ipynb
+.ipynb

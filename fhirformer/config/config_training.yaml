@@ -8,8 +8,8 @@ debug: False
 #run_id: "2021-2022"
 
 start_datetime: "2018-01-01"
-end_datetime: "2023-01-01"
-run_id: "2018-2023-v1"
+end_datetime: "2018-02-02"
+run_id: "2018-2024-v1"
 
 #start_datetime: "2021-03-01"
 #end_datetime: "2021-03-30"
@@ -18,10 +18,12 @@ run_id: "2018-2023-v1"
 root_dir: "/data"
 step: "all"
 data_id: {
+    "ds_readmission": "V1",
     "ds_image": "V5_sliding_nonull",
     "ds_icd": "V5",
     "pretrain_fhir": "V4",
     "pretrain_documents": "none",
+    "ds_insurance_type": "V1"
 }
 
 # Training params

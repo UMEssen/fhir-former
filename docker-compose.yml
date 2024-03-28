@@ -32,8 +32,8 @@ services:
       - WANDB_DATA_DIR=/wandb
     volumes:
       - .:/app
-      - /raid/work/giubaldini/fhirformer/wandb:/wandb
-      - /raid/work/giubaldini/fhirformer:/data
+      - /raid/work/merengelke/fhirformer/wandb:/wandb
+      - /raid/work/merengelke/fhirformer:/data
 
 
 networks:

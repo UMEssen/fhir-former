@@ -1,0 +1,5 @@
+python -m fhirformer --step data --task ds_insurance_type
+CUDA_VISIBLE_DEVICES=2 python -m fhirformer --step train --task ds_readmission --model_checkpoint /raid/work/giubaldini/fhirformer/model_hub/deberta-large-clinical
+
+# LOCAL RUNTIME...
+python -m fhirformer --step data --task ds_readmission --root_dir /raid/work/merengelke/fhirformer

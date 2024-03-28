@@ -87,20 +87,9 @@ class FHIRFilter:
             f"Number of patients before splitting into pretrain and downstream: {len(patients_ids)}"
         )
 
-        # TODO: Decide what is best
-        # Take only 50 % of the patients
-        pretrain_pats = patients_ids[: len(patients_ids) // 2]
-        downstream_pats = patients_ids[len(patients_ids) // 2 :]
-
-        # For the five years, because of the sorting these are just as likely as the others
-        # pretrain_pats = pat_df[
-        #     pat_df["linked_patient_id"].str.startswith(
-        #         tuple(map(str, [0, 1, 2, 3, 4]))
-        #     )
-        # ]["linked_patient_id"].unique().tolist()
-        # downstream_pats = pat_df.loc[
-        #     ~pat_df["linked_patient_id"].isin(pretrain_pats), "linked_patient_id"
-        # ].unique().tolist()
+        # Edit: As we use a pre-trained model we can use all patients for downstream tasks
+        pretrain_pats = pd.DataFrame()  # patients_ids[: len(patients_ids) // 2]
+        downstream_pats = patients_ids  # patients_ids[len(patients_ids) // 2 :]
 
         logger.info(
             f"There are {len(pretrain_pats)} ({len(pretrain_pats) / len(patients_ids):.2f}) "
@@ -211,9 +200,11 @@ class FHIRFilter:
         if (df := self.basic_filtering("diagnostic_report", save=False)) is None:
             return
         df["date"] = df.apply(
-            lambda x: x["issued"]
-            if pd.isnull(x["effective_datetime"])
-            else x["effective_datetime"],
+            lambda x: (
+                x["issued"]
+                if pd.isnull(x["effective_datetime"])
+                else x["effective_datetime"]
+            ),
             axis=1,
         )
         df["original_category_display"] = df["category_display"]
