@@ -8,10 +8,5 @@ data.json
 .env
 __pycache__
 fhir_former.code-workspace
-tmp_nb.ipynb
 fhirformer/config/config_training.yaml
-jupyter/sampling_test.ipynb
-jupyter/tokenizer_test.ipynb
-tmp.sh
-fhirformer/config/config_training.yaml
-.ipynb
+fhirformer/jupyter/

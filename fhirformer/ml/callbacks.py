@@ -83,13 +83,16 @@ class DelayedEarlyStoppingCallback(TrainerCallback):
             early_stopping_threshold=early_stopping_threshold,
         )
 
-    def on_epoch_end(self, args, state, control, **kwargs):
+    def on_evaluate(self, args, state, control, metrics=None, **kwargs):
         if state.epoch > self.delay_epochs:
             if state.epoch == self.delay_epochs + 1:
                 logger.info(
                     f"Delaying early stopping for {self.delay_epochs} epochs..."
                 )
-            self.early_stopping_callback.on_epoch_end(args, state, control, **kwargs)
+            control = self.early_stopping_callback.on_evaluate(
+                args, state, control, metrics, **kwargs
+            )
+        return control
 
 
 class PerplexityLoggingCallback(TrainerCallback):
