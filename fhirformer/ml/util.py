@@ -2,10 +2,11 @@ import os
 from typing import Tuple
 
 import numpy as np
-import wandb
 from datasets import Dataset
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import StratifiedGroupKFold
+
+import wandb
 
 
 def get_param_for_task_model(config, param: str, task: str, model: str):

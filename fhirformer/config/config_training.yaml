@@ -1,6 +1,5 @@
-# Set task
 task: None
-debug: False
+debug: True
 
 # General params for setting the folders and the extraction
 #start_datetime: "2021-01-01"

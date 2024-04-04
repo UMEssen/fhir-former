@@ -3,9 +3,10 @@ from typing import List
 
 import numpy as np
 import torch
-import wandb
 from datasets import load_metric
 from transformers import EarlyStoppingCallback, TrainerCallback
+
+import wandb
 
 logger = logging.getLogger(__name__)
 

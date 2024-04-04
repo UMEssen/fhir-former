@@ -1,12 +1,12 @@
 import logging
 
 import numpy as np
-import wandb
 from datasets import interleave_datasets
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.preprocessing import LabelBinarizer
 from torch.nn import BCELoss
 
+import wandb
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.util import get_evaluation_metrics

@@ -5,9 +5,9 @@ from datetime import datetime
 from pathlib import Path
 
 import pytz
-import wandb
 import yaml
 
+import wandb
 from fhirformer.data_preprocessing import (
     generate_ds_icd_samples,
     generate_ds_image_samples,

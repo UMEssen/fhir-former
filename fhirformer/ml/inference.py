@@ -3,7 +3,6 @@ import logging
 from pathlib import Path
 
 import torch
-import wandb
 from datasets import load_dataset
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.preprocessing import LabelBinarizer, MultiLabelBinarizer
@@ -11,6 +10,7 @@ from tqdm import tqdm
 from transformers import AutoTokenizer, pipeline
 from transformers.pipelines.pt_utils import KeyDataset
 
+import wandb
 from fhirformer.helper.util import timed
 from fhirformer.ml.util import get_evaluation_metrics
 
