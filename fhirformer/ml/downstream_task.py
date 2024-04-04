@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 import numpy as np
-import wandb
 from datasets import load_dataset
 from transformers import (
     AutoModelForSequenceClassification,
@@ -14,6 +13,7 @@ from transformers import (
     TrainingArguments,
 )
 
+import wandb
 from fhirformer.helper.util import get_labels_info
 from fhirformer.ml.callbacks import (
     BestScoreLoggingCallback,
@@ -70,15 +70,19 @@ class DownstreamTask:
             self.dataset, train_ratio=self.train_ratio
         )
         get_labels_info(
-            labels=self.train_dataset["decoded_labels"]
-            if "decoded_labels" in self.train_dataset.features
-            else self.train_dataset["labels"],
+            labels=(
+                self.train_dataset["decoded_labels"]
+                if "decoded_labels" in self.train_dataset.features
+                else self.train_dataset["labels"]
+            ),
             additional_string="Train",
         )
         get_labels_info(
-            labels=self.val_dataset["decoded_labels"]
-            if "decoded_labels" in self.val_dataset.features
-            else self.val_dataset["labels"],
+            labels=(
+                self.val_dataset["decoded_labels"]
+                if "decoded_labels" in self.val_dataset.features
+                else self.val_dataset["labels"]
+            ),
             additional_string="Validation",
         )
         logger.info(
@@ -181,11 +185,9 @@ class DownstreamTask:
                 TrainingLossLoggingCallback,
                 BestScoreLoggingCallback,
                 DelayedEarlyStoppingCallback(
-                    early_stopping_patience=5,
-                    # Number of steps with no improvement after which training will be stopped
-                    early_stopping_threshold=0.0,
-                    # Minimum change in the monitored metric to be considered as an improvement
-                    delay_epochs=5,
+                    early_stopping_patience=3,  # stop training after 3 steps with no improvement
+                    early_stopping_threshold=0.01,  # consider it an improvement if the metric changes by at least 0.01
+                    delay_epochs=1,
                 ),
             ],
         )
