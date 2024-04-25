@@ -187,7 +187,7 @@ class DownstreamTask:
                 DelayedEarlyStoppingCallback(
                     early_stopping_patience=3,  # stop training after 3 steps with no improvement
                     early_stopping_threshold=0.01,  # consider it an improvement if the metric changes by at least 0.01
-                    delay_epochs=1,
+                    delay_epochs=2,
                 ),
             ],
         )

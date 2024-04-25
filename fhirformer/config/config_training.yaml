@@ -1,27 +1,23 @@
 task: None
-debug: True
+debug: False
 
 # General params for setting the folders and the extraction
-#start_datetime: "2021-01-01"
-#end_datetime: "2022-01-01"
-#run_id: "2021-2022"
-
 start_datetime: "2018-01-01"
-end_datetime: "2018-02-02"
+end_datetime: "2024-01-01"
 run_id: "2018-2024-v1"
 
-#start_datetime: "2021-03-01"
-#end_datetime: "2021-03-30"
-#run_id: "testing_30d"
+# start_datetime: "2018-01-01"
+# end_datetime: "2018-02-02"
+# run_id: "2018-2018-01"
 
 root_dir: "/data"
 step: "all"
 data_id: {
     "ds_readmission": "V1",
-    "ds_image": "V5_sliding_nonull",
-    "ds_icd": "V5",
-    "pretrain_fhir": "V4",
-    "pretrain_documents": "none",
+    "ds_image": "V1",
+    "ds_icd": "V1",
+    "pretrain_fhir": "V1",
+    "pretrain_documents": "V1",
     "ds_insurance_type": "V1"
 }
 
@@ -35,7 +31,7 @@ train_ratio: 0.8
 learning_rate: {
   "default": 2e-5,
   "ds_icd": { "default": 1e-6, "severinsimmler/xlm-roberta-longformer-large-16384": 2e-5 },
-  "ds_readmission": { "default": 2e-5 },
+  "ds_readmission": { "default": 1e-5 },
   "pretrain_fhir": { "default": 2e-7 },
 }
 weight_decay: {
@@ -66,8 +62,8 @@ resources_for_task: {
         "biologically_derived_product",
         "observation",  # todo needs adaption to not only deal with lab values
         "episode_of_care",
-        "service_request",
         "medication",
+        "service_request",
     ],
     "ds_image": [
         "condition",

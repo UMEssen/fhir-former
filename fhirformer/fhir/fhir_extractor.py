@@ -591,9 +591,11 @@ class FHIRExtractor:
         )
 
         grouped_patients["linked_patient_id"] = grouped_patients.apply(
-            lambda x: x.linked_patient_id
-            if not pd.isnull(x.linked_patient_id)
-            else x.patient_id,
+            lambda x: (
+                x.linked_patient_id
+                if not pd.isnull(x.linked_patient_id)
+                else x.patient_id
+            ),
             axis=1,
         )
 
@@ -839,7 +841,7 @@ class FHIRExtractor:
               id AS service_request_id,
               fhirql_read_codes(status) AS status,
               replace(replace(jsonb_path_query(_json, '$.subject.reference')::text, 'Patient/', ''), '"', '') AS "patient_id",
-              replace(replace(jsonb_path_query(_json, '$.basedOn.reference')::text, 'ServiceRequest/', ''), '"', '') AS "service_request_id",
+              replace(replace(jsonb_path_query(_json, '$.basedOn.reference')::text, 'ServiceRequest/', ''), '"', '') AS "based_service_request_id",
               fhirql_read_codes(intent) as intent,
               fhirql_read_codes(priority) as priority,
               jsonb_path_query_array(_json, '$.code.coding.code') AS code,
