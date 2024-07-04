@@ -82,7 +82,7 @@ class MortalityRiskDatasetBuilder(EncounterDatasetBuilder):
             if not pat_data.patient_df.deceased_date.empty:
                 deceased_date = pat_data.patient_df.deceased_date.iloc[0]
             else:
-                deceased_date = None  # or some default value or handling
+                deceased_date = None
 
             # did patient die during encounter?
             if deceased_date:
@@ -107,7 +107,7 @@ class MortalityRiskDatasetBuilder(EncounterDatasetBuilder):
                     "sample_start": str(sample_start),
                     "duration": (enc.end - enc.start).days,
                     "text": text,
-                    "labels": decesased_during_encounter,
+                    "label": decesased_during_encounter,
                 }
             )
         return sample_list
