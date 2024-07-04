@@ -12,6 +12,7 @@ from fhirformer.data_preprocessing import (
     generate_ds_icd_samples,
     generate_ds_image_samples,
     generate_ds_main_icd,
+    generate_ds_mortality_samples,
     generate_ds_readmission_samples,
     generate_pre_train_samples,
     sentence_extractor,
@@ -41,6 +42,10 @@ pipelines = {
     },
     "ds_main_icd": {
         "generate": generate_ds_main_icd.main,
+        "train": ds_single_label.main,
+    },
+    "ds_mortality": {
+        "generate": generate_ds_mortality_samples.main,
         "train": ds_single_label.main,
     },
     "pretrain_fhir_documents": {

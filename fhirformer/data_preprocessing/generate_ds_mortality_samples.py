@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 from multiprocessing import Pool
 
+import pandas as pd
 from tqdm import tqdm
 
 from fhirformer.data_preprocessing.encounter_dataset_builder import (
@@ -49,54 +50,64 @@ class MortalityRiskDatasetBuilder(EncounterDatasetBuilder):
     def process_patient(self, patient_id: str):
         """
         - Patient needs at least one encounter
+        - Input: Historical data of patient before encounter + 2 days
+        - Target: did patient die during encounter?
         """
         pat_data = datastore.filter_patient(patient_id=patient_id)
 
-        if len(pat_data.resources["encounter"]) == 0:
+        if (
+            len(pat_data.resources["encounter"]) == 0
+        ):  # todo think about only taking patients that died at some point
             return []
 
-        patient_metadata_str = (
-            f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df)}\n\n"
-        )
         sample_list = []
-        for enc in pat_data.resources["encounter"].itertuples():
-            deceased = pat_data.filter_patient(
+        for enc in pat_data.resources["encounter"].itertuples(index=False):
+            patient_metadata_str = f"Patient metadata:\n{self.pat_df_to_string(pat_data.patient_df, enc.start)}\n\n"
+            sample_start = enc.start + pd.Timedelta(days=2)
+            # Get data before the beginning of this particular encounter
+            resources_before_enc = pat_data.filter_patient(
                 patient_id=patient_id,
-                start_filter_date=enc.end,
-                end_filter_date=enc.end + timedelta(days=30),
-            ).patient_df.deceased.dropna()
-
-            print(deceased)
-
-            # Get data before the end of this particular encounter
-            resources_before_end = pat_data.filter_patient(
-                patient_id=patient_id, end_filter_date=enc.end
+                end_filter_date=sample_start,
+                end_inclusive=False,
             ).resources
-
-            tumor_string = self.get_tumors(resources_before_end["episode_of_care"])
-            if len(tumor_string) > 0:
-                tumor_string = f"Tumor history: {tumor_string}\n\n"
-
-            pat_hist = self.pat_history_to_string(resources_before_end)
+            pat_hist = self.pat_history_to_string(resources_before_enc)
 
             if not pat_hist:
                 continue
 
+            assert (
+                len(pat_data.patient_df.deceased_date) == 1
+            ), "Patient should have only one deceased date"
+
+            if not pat_data.patient_df.deceased_date.empty:
+                deceased_date = pat_data.patient_df.deceased_date.iloc[0]
+            else:
+                deceased_date = None  # or some default value or handling
+
+            # did patient die during encounter?
+            if deceased_date:
+                # in some cases the time of death is set to one day after the encounter
+                decesased_during_encounter = (
+                    deceased_date >= enc.start
+                    and deceased_date <= enc.end + timedelta(days=1)
+                )
+
             text = (
                 f"{patient_metadata_str}"
                 f"Encounter:\n{self.enc_to_string(enc)}\n\n"
-                f"{tumor_string}"
-                f"ICD Version: {self.get_icd_version(resources_before_end['condition'])}\n\n"
                 f"Patient history:\n{pat_hist}"
             )
 
             sample_list.append(
                 {
                     "patient_id": str(patient_id),
-                    "encounter_id": enc.id,
-                    "encounter_start_date": str(enc.start),
+                    "encounter_id": enc.encounter_id,
+                    "encounter_start": str(enc.start),
+                    "encounter_end": str(enc.end),
+                    "sample_start": str(sample_start),
+                    "duration": (enc.end - enc.start).days,
                     "text": text,
-                    "labels": deceased,
+                    "labels": decesased_during_encounter,
                 }
             )
         return sample_list
