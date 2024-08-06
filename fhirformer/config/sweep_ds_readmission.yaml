@@ -1,0 +1,37 @@
+method: bayes
+metric:
+  name: val_loss
+  goal: minimize
+parameters:
+  model_checkpoint:
+    values: ["ikim-uk-essen/geberta-base", "ikim-uk-essen/geberta-large", "ikim-uk-essen/geberta-xlarge"]
+  use_condition:
+    values: [true, false]
+  use_procedure:
+    values: [true, false]
+  use_imaging_study:
+    values: [true, false]
+  use_diagnostic_report:
+    values: [true, false]
+  use_biologically_derived_product:
+    values: [true, false]
+  use_observation:
+    values: [true, false]
+  use_episode_of_care:
+    values: [true, false]
+  use_medication:
+    values: [true, false]
+  use_service_request:
+    values: [true, false]
+
+program: fhirformer
+project: fhirformer_ds_v2
+command:
+  - python
+  - "-m"
+  - "fhirformer"
+  - "--step"
+  - "sampling+train"
+  - "--task"
+  - "ds_readmission"
+  - ${args}

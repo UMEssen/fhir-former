@@ -62,6 +62,18 @@ pipelines = {
     },
 }
 
+bool_args = [
+    "use_condition",
+    "use_procedure",
+    "use_imaging_study",
+    "use_diagnostic_report",
+    "use_biologically_derived_product",
+    "use_observation",
+    "use_episode_of_care",
+    "use_medication",
+    "use_service_request",
+]
+
 
 # Set up logging
 LOG_LEVEL = logging.INFO
@@ -129,22 +141,16 @@ def parse_args_local(config) -> argparse.Namespace:
         default=config["model_checkpoint"],
         help="Path to trained model or huggingface model name as string",
     )
-    parser.add_argument(
-        "--train_epochs",
-        type=int,
-        default=50,
-    )
-    parser.add_argument(
-        "--task",
-        type=str,
-        default=config["task"],
-        required=True,
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        default=config["debug"],
-    )
+
+    for arg in bool_args:
+        parser.add_argument(
+            f"--{arg}",
+            type=lambda x: (str(x).lower() == "true"),
+            default=config.get(arg, False),
+        )
+
+    parser.add_argument("--task", type=str, default=config["task"], required=True)
+    parser.add_argument("--debug", action="store_true", default=config["debug"])
     parser.add_argument(
         "--download_documents",
         action="store_true",
@@ -160,7 +166,12 @@ def parse_args_local(config) -> argparse.Namespace:
     )
     parser.add_argument("--run_name", type=str, default=None)
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Log parsed arguments
+    logger.info(f"Parsed arguments: {vars(args)}")
+
+    return args
 
 
 def run():
@@ -177,6 +188,12 @@ def run():
     config["root_dir"] = config["root_dir"] / config["run_id"]
     config["data_dir"] = config["root_dir"] / "data_raw"
     config["data_dir"].mkdir(parents=True, exist_ok=True)
+
+    # check if any of the use args are set to true
+    if any(config.get(arg) for arg in bool_args):
+        data_id_components = [arg for arg in bool_args if config.get(arg)]
+        data_id_components = [comp[4:] for comp in data_id_components]
+        config["data_id"][config["task"]] = "+".join(data_id_components)
 
     # Create model folder
     config["model"], config["model_name"], config["loaded_model"] = name_from_model(
