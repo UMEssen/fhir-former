@@ -5,9 +5,9 @@ from datetime import datetime
 from pathlib import Path
 
 import pytz
+import wandb
 import yaml
 
-import wandb
 from fhirformer.data_preprocessing import (
     generate_ds_icd_samples,
     generate_ds_image_samples,
@@ -154,6 +154,9 @@ def parse_args_local(config) -> argparse.Namespace:
         "--step",
         default=config["step"],
         help="Plus separated list steps to run. Valid options: data, sampling, train, all.",
+    )
+    parser.add_argument(
+        "--max_train_samples", type=int, default=config["max_train_samples"]
     )
     parser.add_argument("--run_name", type=str, default=None)
 

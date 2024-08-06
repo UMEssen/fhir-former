@@ -1,15 +1,14 @@
 import logging
 
+import evaluate
 import numpy as np
+import wandb
 from datasets import interleave_datasets
-from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.preprocessing import LabelBinarizer
 from torch.nn import BCELoss
 
-import wandb
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
-from fhirformer.ml.util import get_evaluation_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -68,27 +67,43 @@ class SingleLabelTrainer(DownstreamTask):
         logits, labels = eval_pred
         probabilities = self.softmax(logits)
         predictions = np.argmax(probabilities, axis=-1)
-        basic_metrics = get_evaluation_metrics(
-            predictions=predictions, labels=labels, single_label=True
+        metric_accuracy = evaluate.load("accuracy")
+        metric_precision = evaluate.load("precision")
+        metric_recall = evaluate.load("recall")
+        metric_f1 = evaluate.load("f1")
+        metric_auc_roc = evaluate.load("roc_auc")
+
+        results = {}
+        results.update(
+            metric_accuracy.compute(predictions=predictions, references=labels)
         )
-        # Safely compute AUC-ROC and AUC-PR
-        auc_roc, auc_pr = 0, 0
-        try:
-            auc_roc = roc_auc_score(labels, probabilities)
-            auc_pr = average_precision_score(labels, probabilities)
-        except ValueError:
-            pass
+        results.update(
+            metric_precision.compute(
+                predictions=predictions, references=labels, average="macro"
+            )
+        )
+        results.update(
+            metric_recall.compute(
+                predictions=predictions, references=labels, average="macro"
+            )
+        )
+        results.update(
+            metric_f1.compute(
+                predictions=predictions, references=labels, average="macro"
+            )
+        )
 
-        metrics = {}
-        for metric, value in basic_metrics.items():
-            metrics["eval_" + metric] = value
+        results.update(
+            metric_auc_roc.compute(prediction_scores=predictions, references=labels)
+        )
 
-        metrics.update({"auc_roc": round(auc_roc, 2), "auc_pr": round(auc_pr, 2)})
+        for key, value in results.items():
+            results[key] = round(value, 4)
 
         # Log metrics to wandb
-        wandb.log(metrics)
+        wandb.log(results)
 
-        return metrics
+        return results
 
 
 @timed
