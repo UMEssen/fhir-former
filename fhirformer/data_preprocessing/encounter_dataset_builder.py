@@ -279,7 +279,23 @@ class EncounterDatasetBuilder:
 
     @staticmethod
     def get_age_from_birth_date(birth_date: str, encounter_date: str) -> int:
-        return (pd.to_datetime(encounter_date) - pd.to_datetime(birth_date)).days // 365
+        birth_date_dt = pd.to_datetime(birth_date)
+        encounter_date_dt = pd.to_datetime(encounter_date)
+
+        # Ensure both datetime objects are timezone-naive
+        if (
+            birth_date_dt.tzinfo is not None
+            and birth_date_dt.tzinfo.utcoffset(birth_date_dt) is not None
+        ):
+            birth_date_dt = birth_date_dt.tz_localize(None)
+        if (
+            encounter_date_dt.tzinfo is not None
+            and encounter_date_dt.tzinfo.utcoffset(encounter_date_dt) is not None
+        ):
+            encounter_date_dt = encounter_date_dt.tz_localize(None)
+
+        # Calculate the difference in days and then divide by 365 to get the age in years
+        return (encounter_date_dt - birth_date_dt).days // 365
 
     @staticmethod
     def group_resources(df: pd.DataFrame, remove_duplicates: bool = True):
@@ -304,7 +320,6 @@ class EncounterDatasetBuilder:
             ]
 
         date = df["date"].iloc[0]
-        # resource = df["resource"].iloc[0]
         return f"{date}:\n" + "\n".join(relevant_info)
 
     @staticmethod

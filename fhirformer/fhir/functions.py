@@ -92,100 +92,112 @@ def extract_imaging_study(bundle: FHIRObj) -> List[Dict]:
                 }
             )
             records.append(series_dict)
+
     return records
 
 
 def extract_bdp(bundle):
-    def extract_bdp_elements(resource):
-        # Extract BiologicallyDerivedProduct elements
-        resource_id = getattr(resource, "id", np.nan)
-        request_id = (
-            getattr(resource, "request", [{}])[0]
-            .get("reference", "")
-            .split("ServiceRequest/")[-1]
-        )
-        ausgabe_datetime = (
-            getattr(resource, "storage", [{}])[0].get("duration", {}).get("end", pd.NaT)
-        )
-
-        extensions = getattr(resource, "extension", [])
-        output_to = next(
-            (
-                e.valueString
-                for e in extensions
-                if e.url == "https://uk-essen.de/LAB/Nexus/Swisslab/KONSERVE/AUSGABEAN"
-            ),
-            np.nan,
-        )
-        ausgabe_type = next(
-            (
-                e.valueString
-                for e in extensions
-                if e.url == "https://uk-essen.de/LAB/Nexus/Swisslab/KONSERVE/VERBRAUCH"
-            ),
-            np.nan,
-        )
-
-        product_code = getattr(resource, "productCode", {}).get("coding", [])
-        code = next(
-            (
-                e.get("code")
-                for e in product_code
-                if e.get("system")
-                == "https://uk-essen.de/LAB/Nexus/Swisslab/KONSERVE/KONSART"
-            ),
-            np.nan,
-        )
-        display = next(
-            (
-                e.get("display")
-                for e in product_code
-                if e.get("system")
-                == "https://uk-essen.de/LAB/Nexus/Swisslab/KONSERVE/KONSART"
-            ),
-            np.nan,
-        )
-
-        return {
-            "resource_type": "bdp",
-            "resource_id": resource_id,
-            "request_id": request_id,
-            "ausgabe_datetime": ausgabe_datetime,
-            "ausgabe_type": ausgabe_type,
-            "code": code,
-            "display": display,
-            "output_to": output_to,
-        }
-
-    def extract_service_request_elements(resource):
-        request_id = getattr(resource, "id", np.nan)
-        patient_id = (
-            getattr(resource, "subject", {}).get("reference", "").split("Patient/")[-1]
-        )
-
-        requester = getattr(resource, "requester", {})
-        output_to_einskurz = requester.get("extension", [{}])[0].get("valueString")
-        output_to_einscode = requester.get("extension", [{}])[1].get("valueString")
-
-        return {
-            "resource_type": "sr",
-            "request_id": request_id,
-            "patient_id": patient_id,
-            "output_to_einskurz": output_to_einskurz,
-            "output_to_einscode": output_to_einscode,
-        }
-
     records = []
-
     for entry in bundle.entry or []:
         resource = entry.resource
-
+        # ResourceType: BDP
         if resource.resourceType == "BiologicallyDerivedProduct":
-            elements = extract_bdp_elements(resource)
+            try:
+                resource_id = resource.id
+            except Exception:
+                resource_id = np.nan
+
+            try:
+                request_id = resource.request[0].reference.split("ServiceRequest/")[-1]
+            except Exception:
+                request_id = np.nan
+
+            try:
+                ausgabe_datetime = resource.storage[0].duration.end
+            except Exception:
+                ausgabe_datetime = pd.NaT
+
+            try:
+                extensions = resource.extension
+                output_to = next(
+                    (
+                        e.valueString
+                        for e in extensions
+                        if e.url
+                        == "https://uk-essen.de/LAB/Nexus/Swisslab/KONSERVE/AUSGABEAN"
+                    ),
+                    None,
+                )
+            except Exception:
+                extensions = np.nan
+                output_to = np.nan
+
+            try:
+                ausgabe_type = next(
+                    (
+                        e.valueString
+                        for e in extensions
+                        if e.url
+                        == "https://uk-essen.de/LAB/Nexus/Swisslab/KONSERVE/VERBRAUCH"
+                    ),
+                    None,
+                )
+            except Exception:
+                ausgabe_type = np.nan
+
+            try:
+                product_code = resource.productCode.coding
+                code = next(
+                    (
+                        e.code
+                        for e in product_code
+                        if e.system
+                        == "https://uk-essen.de/LAB/Nexus/Swisslab/KONSERVE/KONSART"
+                    ),
+                    None,
+                )
+                display = next(
+                    (
+                        e.display
+                        for e in product_code
+                        if e.system
+                        == "https://uk-essen.de/LAB/Nexus/Swisslab/KONSERVE/KONSART"
+                    ),
+                    None,
+                )
+            except Exception:
+                code = np.nan
+
+            elements = {
+                "resource_type": "bdp",
+                "resource_id": resource_id,
+                "request_id": request_id,
+                "ausgabe_datetime": ausgabe_datetime,
+                "ausgabe_type": ausgabe_type,
+                "code": code,
+                "display": display,
+                "output_to": output_to,
+            }
             records.append(elements)
 
+        # ResourceType: Service Request
         if resource.resourceType == "ServiceRequest":
-            elements = extract_service_request_elements(resource)
+            request_id = resource.id
+            patient_id = resource.subject.reference.split("Patient/")[-1]
+            try:
+                output_to_einskurz = resource.requester.extension[0].valueString
+                output_to_einscode = resource.requester.extension[1].valueString
+            except Exception:
+                output_to_einskurz = None
+                output_to_einscode = None
+
+            elements = {
+                "resource_type": "sr",
+                "request_id": request_id,
+                "patient_id": patient_id,
+                "output_to_einskurz": output_to_einskurz,
+                "output_to_einscode": output_to_einscode,
+            }
             records.append(elements)
 
     return records
