@@ -1,6 +1,6 @@
 method: bayes
 metric:
-  name: val_loss
+  name: eval_loss
   goal: minimize
 parameters:
   model_checkpoint:
