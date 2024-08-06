@@ -110,12 +110,6 @@ def choose_list_items(
         return x
 
 
-def reduce_cardinality(
-    series: pd.Series, set_to_none: bool = False, take_first: bool = False
-) -> pd.Series:
-    return series.apply(lambda x: choose_list_items(x, set_to_none, take_first))
-
-
 def store_df(df: pd.DataFrame, output_path: Path, resource: str = "resource"):
     logger.info(f"Saving {len(df)} {resource} to {output_path}")
     if output_path.name.endswith(".ftr"):
@@ -124,6 +118,16 @@ def store_df(df: pd.DataFrame, output_path: Path, resource: str = "resource"):
         df.reset_index(drop=True).to_pickle(output_path)
     else:
         raise ValueError(f"Output format not supported for {output_path}")
+
+
+def load_df(input_path: Path, resource: str = "resource") -> pd.DataFrame:
+    logger.info(f"Loading {resource} from {input_path}")
+    if input_path.name.endswith(".ftr"):
+        return pd.read_feather(input_path)
+    elif input_path.name.endswith(".pkl"):
+        return pd.read_pickle(input_path)
+    else:
+        raise ValueError(f"Input format not supported for {input_path}")
 
 
 def check_and_read(path: Path) -> pd.DataFrame:
@@ -195,3 +199,13 @@ def col_to_datetime(date_series: pd.Series) -> pd.Series:
 
         date_series = date_series.dt.tz_localize(None)
     return date_series
+
+
+def extract_id(element: pd.Series) -> pd.Series:
+    return element.str.split("/").str[-1]
+
+
+def reduce_cardinality(
+    series: pd.Series, set_to_none: bool = False, take_first: bool = False
+) -> pd.Series:
+    return series.apply(lambda x: choose_list_items(x, set_to_none, take_first))

@@ -87,21 +87,8 @@ class FHIRFilter:
             f"Number of patients before splitting into pretrain and downstream: {len(patients_ids)}"
         )
 
-        # Edit: As we use a pre-trained model we can use all patients for downstream tasks
-        pretrain_pats = pd.DataFrame()  # patients_ids[: len(patients_ids) // 2]
-        downstream_pats = patients_ids  # patients_ids[len(patients_ids) // 2 :]
-
-        logger.info(
-            f"There are {len(pretrain_pats)} ({len(pretrain_pats) / len(patients_ids):.2f}) "
-            f"patients for pretraining "
-            f"and {len(downstream_pats)} ({len(downstream_pats) / len(patients_ids):.2f}) "
-            f"patients for downstream tasks."
-        )
-        with (self.config["data_dir"] / "pretrain_patient_ids.pkl").open("wb") as of:
-            pickle.dump(pretrain_pats, of)
-
-        with (self.config["data_dir"] / "downstream_patient_ids.pkl").open("wb") as of:
-            pickle.dump(downstream_pats, of)
+        with (self.config["data_dir"] / "patient_ids.pkl").open("wb") as of:
+            pickle.dump(patients_ids, of)
 
     def filter_bdp(self):
         output_path = (
@@ -112,15 +99,9 @@ class FHIRFilter:
         ) is None:
             return
 
-        # df = df[~df["code"] == 133]
-
-        df.rename(columns={"ausgabean": "output_to_einskurz"}, inplace=True)
-
         df.drop_duplicates(subset=["bdp_id", "service_request_id"], inplace=True)
-        df = df[df["verbrauch"] == "AUSGABE"]
-        reduce_cardinality(df["status"], set_to_none=True)
-        reduce_cardinality(df["priority"], set_to_none=True)
-
+        df = df[df["ausgabe_type"] == "AUSGABE"]
+        df["ausgabe_datetime"] = pd.to_datetime(df["ausgabe_datetime"])
         store_df(df, output_path)
 
     @staticmethod
@@ -133,14 +114,7 @@ class FHIRFilter:
         self, df: pd.DataFrame, is_patient_df: bool = False
     ) -> pd.DataFrame:
         # filtering out patients that are not in the patient table
-        pats = check_and_read(
-            self.config["data_dir"]
-            / (
-                "pretrain_patient_ids.pkl"
-                if "pretrain" in self.config["task"]
-                else "downstream_patient_ids.pkl"
-            )
-        )
+        pats = check_and_read(self.config["data_dir"] / "patient_ids.pkl")
         meta_pats = check_and_read(self.config["data_dir"] / f"patient{OUTPUT_FORMAT}")
         filtered_meta = meta_pats[meta_pats["linked_patient_id"].isin(pats)]
 
@@ -193,7 +167,6 @@ class FHIRFilter:
     def filter_medication(self):
         if (df := self.basic_filtering("medication", save=False)) is None:
             return
-        df["status"] = reduce_cardinality(df["status"], set_to_none=True)
         store_df(df, self.config["task_dir"] / f"medication{OUTPUT_FORMAT}")
 
     def filter_diagnostic_report(self):
@@ -207,9 +180,13 @@ class FHIRFilter:
             ),
             axis=1,
         )
+        # if title is a list take only the first
+        df["title"] = df["title"].apply(lambda x: x[0] if isinstance(x, list) else x)
         df["original_category_display"] = df["category_display"]
-        for col in ["category", "category_display", "title"]:
-            df[col] = reduce_cardinality(df[col], take_first=True)
+
+        df["category"] = reduce_cardinality(df["category"], take_first=True)
+        df["content_type"] = reduce_cardinality(df["content_type"], take_first=True)
+
         store_df(df, self.config["task_dir"] / f"diagnostic_report{OUTPUT_FORMAT}")
 
     def filter_patient_info(self):
@@ -237,19 +214,12 @@ class FHIRFilter:
 
         pros_filtered = pros.dropna(subset=["encounter_id"])
 
-        pros_filtered["status"] = reduce_cardinality(
-            pros_filtered["status"], set_to_none=True
-        )
-
         pros_filtered = pros_filtered[
             (pros_filtered["status"] == "completed")
             | (pros_filtered["status"] == "in-progress")
             | (pros_filtered["status"] == "preparation")
         ]
 
-        pros_filtered["code"] = reduce_cardinality(
-            pros_filtered["code"], set_to_none=True
-        )
         pros_filtered["start"] = pros_filtered[
             "effectivedatetimestart_v1"
         ].combine_first(pros_filtered["effectivedatetimestart_v2"])
@@ -275,12 +245,6 @@ class FHIRFilter:
         # Filtering by date of config
         pros_filtered["start"] = col_to_datetime(pros_filtered["start"])
         pros_filtered["end"] = col_to_datetime(pros_filtered["end"])
-        pros_filtered = self.filter_date(
-            self.config["start_datetime"],
-            self.config["end_datetime"],
-            pros_filtered,
-            "start",
-        )
         store_df(pros_filtered, output_path)
 
     def filter_conditions(self) -> None:
@@ -288,62 +252,26 @@ class FHIRFilter:
         if (df_cond := self.basic_filtering("condition", save=False)) is None:
             return
 
-        df_cond = df_cond.dropna(subset=["encounter_id", "patient_id", "condition_id"])
-        df_cond.drop_duplicates(
-            subset=["condition_id", "code_diagnosis_type"], inplace=True
+        logging.info(f"Number of conditions before filtering: {len(df_cond)}")
+
+        df_cond["code_diagnosis_type"] = reduce_cardinality(
+            df_cond["code_diagnosis_type"], take_first=True
         )
-        df_cond["icd_code"] = df_cond["icd_code"].apply(lambda x: x[0] if x else None)
-        # todo think about if we need to resolve the practitioner
+        df_cond["code_diagnosis_display"] = reduce_cardinality(
+            df_cond["code_diagnosis_display"], take_first=True
+        )
 
-        df_cond = df_cond[
-            [
-                "patient_id",
-                "condition_id",
-                "encounter_id",
-                "condition_date",
-                "icd_code",
-                "icd_display",
-                "icd_version",
-                "code_diagnosis_type",
-                "code_diagnosis_display",
-            ]
-        ]
+        df_cond = df_cond.dropna(subset=["encounter_id", "patient_id", "condition_id"])
 
+        logging.info(f"Number of conditions after filtering: {len(df_cond)}")
         store_df(df_cond, output_path)
 
     def filter_imaging_studies(self):
         output_path = self.config["task_dir"] / f"imaging_study{OUTPUT_FORMAT}"
         if (df_img := self.basic_filtering("imaging_study", save=False)) is None:
             return
-
-        df_img["status"] = reduce_cardinality(df_img["status"], set_to_none=True)
-        df_img["study_instance_uid"] = reduce_cardinality(
-            df_img["study_instance_uid"], set_to_none=True
-        )
-        df_img["modality_code"] = reduce_cardinality(
-            df_img["modality_code"], set_to_none=True
-        )
-        df_img["modality_version"] = reduce_cardinality(
-            df_img["modality_version"], set_to_none=True
-        )
-        df_img["procedure_version"] = reduce_cardinality(
-            df_img["procedure_version"], set_to_none=True
-        )
-        df_img["procedure_display"] = reduce_cardinality(
-            df_img["procedure_display"], set_to_none=True
-        )
-        df_img["procedure_code"] = reduce_cardinality(
-            df_img["procedure_code"], set_to_none=True
-        )
-        df_img["reason_version"] = reduce_cardinality(
-            df_img["reason_version"], set_to_none=True
-        )
-        df_img["reason_display"] = reduce_cardinality(
-            df_img["reason_display"], set_to_none=True
-        )
-
+        df_img.rename(columns={"id": "imaging_study_id"}, inplace=True)
         df_img.drop_duplicates(subset=["imaging_study_id"], inplace=True)
-
         store_df(df_img, output_path)
 
     def filter_observation(self):
@@ -351,7 +279,9 @@ class FHIRFilter:
         if (df_obs := self.basic_filtering("observation", save=False)) is None:
             return
 
-        df_obs.dropna(subset=["value_quantity"], inplace=True)
+        df_obs.dropna(subset=["value_quantity", "value_unit"], inplace=True)
+        df_obs["code"] = reduce_cardinality(df_obs["code"], take_first=True)
+        df_obs["display"] = reduce_cardinality(df_obs["display"], take_first=True)
 
         store_df(df_obs, output_path)
 
@@ -367,18 +297,12 @@ class FHIRFilter:
         if (df := self.basic_filtering("service_request", save=False)) is None:
             return
 
-        for col in [
-            "status",
-            "intent",
-            "priority",
-            "code",
-            "code_display",
-            "category_code",
-            "category_display",
-        ]:
-            df[col] = reduce_cardinality(df[col], set_to_none=True)
-
         df = df[df["status"].isin(["active", "completed", "draft", "unknown"])]
         df.dropna(subset=["patient_id"], inplace=True)
+
+        df["category_code"] = reduce_cardinality(df["category_code"], take_first=True)
+        df["category_display"] = reduce_cardinality(
+            df["category_display"], take_first=True
+        )
 
         store_df(df, output_path)

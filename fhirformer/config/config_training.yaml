@@ -85,7 +85,7 @@ resources_for_task: {
 # Patient
 patient_params: {
   "_count": 1000,
-  "_sort": "-date"
+  # "_sort": "-date"
 }
 patient_constraints: {"_id": "patient_id"}
 
@@ -111,10 +111,8 @@ bdp_params: {
 
 # Observation
 obs_params: {
-  "code": "zTHRA",
-  "_count": 500,
+  "_count": 5000,
   "_sort": "-date",
-  "_include": "Observation:based-on"
 }
 
 # Procedure
@@ -129,6 +127,19 @@ condition_params: {
   "_count": 1000,
   "_sort": "-recorded-date"
 }
+
+# Imaging Study
+imaging_study_params: {
+  "_count": 1000,
+  "_sort": "_lastUpdated"
+}
+
+# diagnostic_report
+diagnostic_report_params: {
+  "_count": 1000,
+  "_sort": "_lastUpdated"
+}
+
 
 # Medication
 medication_params: {
@@ -147,6 +158,12 @@ medication_admin_params: {
 
 # ServiceRequest
 service_request_params: {
+  "_count": 1000,
+  "_sort": "_lastUpdated"
+}
+
+# episode_of_care_params
+episode_of_care_params: {
   "_count": 1000,
   "_sort": "_lastUpdated"
 }
@@ -185,7 +202,7 @@ text_sampling_column_maps: {
         "bracket_cols": ["display", "value_quantity", "value_unit"]
     },
     "service_request": {
-        "main_col": "authored",
+        "main_col": "authoredOn",
         "bracket_cols": ["code_display", "category_display"]
     },
     "medication": {
@@ -196,7 +213,7 @@ text_sampling_column_maps: {
         "drop_duplicates": ["patient_id", "encounter_id"],
         "main_col": "start",
         "bracket_cols": [
-          "encounter_id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_participanttypecode_code", "v3_participanttypecode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display", "discharge_text", "discharge_place_code", "discharge_place_display"]
+          "encounter_id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_ParticipantTypeCode_code", "v3_ParticipantTypeCode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display", "discharge_text", "discharge_place_code", "discharge_place_display"]
     },
     "episode_of_care": {
         "main_col": "start",
