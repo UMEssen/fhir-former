@@ -2,11 +2,20 @@ import os
 from typing import Tuple
 
 import numpy as np
+import wandb
 from datasets import Dataset
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import StratifiedGroupKFold
 
-import wandb
+
+# Function to determine which files to exclude
+def exclude_fn(filepath):
+    if any(
+        excluded in filepath
+        for excluded in [".venv", ".envrc", ".pre-commit-config.yaml"]
+    ):
+        return True
+    return False
 
 
 def get_param_for_task_model(config, param: str, task: str, model: str):
@@ -39,7 +48,7 @@ def split_dataset(
 
 def init_wandb(config):
     project_name = (
-        "fhirformer_ds"
+        "fhirformer_ds_v2"
         if config["task"].startswith("ds_")
         else "fhirformer_pretraining"
     )
@@ -57,7 +66,12 @@ def init_wandb(config):
         group=config["task"].split("_")[1],
         resume=config["run_name"] if config["model_checkpoint"] else None,
     )
-    wandb.run.log_code(".")
+
+    wandb.run.log_code(
+        root=".",
+        include_fn=lambda path: path.endswith(".py") or path.endswith(".yaml"),
+        exclude_fn=exclude_fn,
+    )
 
 
 def get_evaluation_metrics(

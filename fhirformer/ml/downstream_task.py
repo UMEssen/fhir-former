@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import numpy as np
+import wandb
 from datasets import load_dataset
 from transformers import (
     AutoModelForSequenceClassification,
@@ -13,25 +14,12 @@ from transformers import (
     TrainingArguments,
 )
 
-import wandb
 from fhirformer.helper.util import get_labels_info
-from fhirformer.ml.callbacks import (
-    BestScoreLoggingCallback,
-    DelayedEarlyStoppingCallback,
-    TrainingLossLoggingCallback,
-)
+from fhirformer.ml.callbacks import DelayedEarlyStoppingCallback
 from fhirformer.ml.util import get_param_for_task_model, split_dataset
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
-
-LOGGED_METRICS = [
-    ("precision", "max"),
-    ("recall", "max"),
-    ("f1", "max"),
-    ("loss", "min"),
-]
-METRIC_VERSIONS = ["macro", "weighted"]
 
 
 class DownstreamTask:
@@ -45,7 +33,7 @@ class DownstreamTask:
         self.config = config
         self.model_checkpoint = config["model_checkpoint"]
         self.batch_size = config["batch_size"]
-        self.epochs = config["num_train_epochs"]
+        self.epochs = 4 if config["debug"] else config["num_train_epochs"]
         self.train_ratio = config["train_ratio"]
         self.problem_type = problem_type
         self.model, self.tokenizer = None, None
@@ -69,6 +57,7 @@ class DownstreamTask:
         self.train_dataset, self.val_dataset = split_dataset(
             self.dataset, train_ratio=self.train_ratio
         )
+        self.test_dataset = load_dataset(str(config["sample_dir"]), split="test")
         get_labels_info(
             labels=(
                 self.train_dataset["decoded_labels"]
@@ -147,6 +136,7 @@ class DownstreamTask:
     def tokenize_datasets(self):
         self.train_dataset = self.tokenize(self.train_dataset)
         self.val_dataset = self.tokenize(self.val_dataset)
+        self.test_dataset = self.tokenize(self.test_dataset)
 
     def tokenize(self, dataset):
         return dataset.map(
@@ -175,15 +165,16 @@ class DownstreamTask:
         training_args = TrainingArguments(**self.training_arguments)
         self.model_best_path.mkdir(parents=True, exist_ok=True)
 
-        trainer = Trainer(
+        # logging steps twice per epoch
+        training_args.logging_steps = len(self.train_dataset) // self.batch_size // 2
+
+        self.trainer = Trainer(
             model=self.model,
             args=training_args,
             train_dataset=self.train_dataset,
             eval_dataset=self.val_dataset,
             compute_metrics=self.compute_metrics,
             callbacks=[
-                TrainingLossLoggingCallback,
-                BestScoreLoggingCallback,
                 DelayedEarlyStoppingCallback(
                     early_stopping_patience=3,  # stop training after 3 steps with no improvement
                     early_stopping_threshold=0.01,  # consider it an improvement if the metric changes by at least 0.01
@@ -192,6 +183,17 @@ class DownstreamTask:
             ],
         )
 
-        trainer.train()
-        trainer.save_model(self.model_best_path)
+        self.trainer.train()
+        self.trainer.save_model(self.model_best_path)
         self.tokenizer.save_pretrained(self.model_best_path)
+
+        self.test()
+
+    def test(self):
+        logger.info("Evaluating the model on the test dataset...")
+        test_results = self.trainer.evaluate(
+            eval_dataset=self.test_dataset, metric_key_prefix="test"
+        )
+        for key, value in test_results.items():
+            logger.info(f"{key}: {value:.4f}")
+        wandb.log(test_results)

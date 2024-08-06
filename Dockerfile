@@ -19,3 +19,4 @@ WORKDIR /app
 
 ENV TRANSFORMERS_CACHE=/tmp/.cache/transformers
 ENV HF_DATASETS_CACHE=/tmp/.cache/huggingface/datasets
+ENV HF_HOME=/tmp/.cache/huggingface

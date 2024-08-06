@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from datasets import load_dataset
 from torch.nn import functional as F
-from transformers import (  # EarlyStoppingCallback,
+from transformers import (
     AutoModelForMaskedLM,
     AutoTokenizer,
     DataCollatorForLanguageModeling,
@@ -15,7 +15,6 @@ from transformers import (  # EarlyStoppingCallback,
     TrainingArguments,
 )
 
-# from fhirformer.helper.util import is_main_process
 from fhirformer.ml.callbacks import TrainingLossLoggingCallback
 from fhirformer.ml.util import get_param_for_task_model
 
