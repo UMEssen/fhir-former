@@ -482,49 +482,6 @@ class FHIRExtractor:
         )
 
     def build_procedure(self):
-        # self.default_metrics_extraction(
-        #     output_name="procedure",
-        #     query=f"""
-        #     select pro.id as procedure_id,
-        #     replace(pro_s.reference, 'Patient/', '') as patient_id,
-        #     replace(pro_e.reference, 'Encounter/', '') as encounter_id,
-        #     fhirql_read_codes(pro_code.code) as code,
-        #     fhirql_read_codes(pro.status) as status,
-        #     version,
-        #     pro_code.display,
-        #     lower("start")::timestamp as effectivedatetimestart_v1,
-        #     upper("end")::timestamp as effectivedatetimeend_v1,
-        #     lower("performedDateTime")::timestamp as effectivedatetimestart_v2,
-        #     upper("performedDateTime")::timestamp as effectivedatetimeend_v2,
-        #     replace(pro_loc.reference, 'Location/', '') as location_id
-        #     from procedure pro
-        #     join procedure_encounter pro_e on pro_e._resource = pro._id
-        #     join procedure_subject pro_s on pro_s._resource = pro._id
-        #     join procedure_code_coding pro_code on pro_code._resource = pro._id
-        #     left join "procedure_performedPeriod" pro_period on pro_period._resource = pro._id
-        #     left join procedure_location pro_loc on pro._id = pro_loc._resource
-        #     join fhirql_codes xc1 on xc1.id = pro_code.code
-        #     join fhirql_codes xc2 on xc2.id = pro.status
-        #     where ('{self.config["start_datetime"]}' <= lower("start")::timestamp
-        #     and lower("start")::timestamp <= '{self.config["end_datetime"]}')
-        #     or ('{self.config["start_datetime"]}' <= lower("performedDateTime")::timestamp
-        #     and lower("performedDateTime")::timestamp <= '{self.config["end_datetime"]}')
-        #     """,
-        # )
-
-        # df = self.search.sail_through_search_space_to_dataframe(
-        #     process_function=self.extract_procedure,
-        #     resource_type="Procedure",
-        #     request_params=self.config["procedure_params"],
-        #     time_attribute_name="date",
-        #     date_init=self.config["start_datetime"],
-        #     date_end=self.config["end_datetime"],
-        # )
-
-        # df.procedure_start = df.procedure_start.astype(str)
-        # df.procedure_end = df.procedure_end.astype(str)
-        # self.store_pyrate_extraction(df, "procedure")
-
         self.default_pyrate_extraction(
             "procedure",
             request_params=self.config["procedure_params"],
@@ -547,31 +504,6 @@ class FHIRExtractor:
 
     # Building Condition DataFrame
     def build_condition(self):
-        # self.default_metrics_extraction(
-        #     output_name="condition",
-        #     query=f"""
-        #     select c.id as metrics_id,
-        #     c._id as condition_id,
-        #     replace(c_s.reference, 'Patient/', '') as patient_id,
-        #     replace(c_e.reference, 'Encounter/', '') as encounter_id,
-        #     replace(c_r.reference, 'Practitioner/', '') as practitioner_id,
-        #     lower(c."recordedDate")::timestamp as condition_date,
-        #     fhirql_read_codes(c_cc.code) as icd_code,
-        #     c_cc.display as icd_display,
-        #     c_cc.version as icd_version,
-        #     c_ccc.code as code_diagnosis_type,
-        #     c_ccc.display as code_diagnosis_display
-        #     from condition c
-        #     join condition_subject c_s on c_s._resource = c._id
-        #     join condition_encounter c_e on c_e._resource = c._id
-        #     left join condition_recorder c_r on c_r._resource = c._id
-        #     left join condition_code_coding c_cc on c_cc._resource = c._id
-        #     left join condition_category_coding c_ccc on c_ccc._resource = c._id
-        #     where '{self.config["start_datetime"]}' <= lower(c."recordedDate")::timestamp
-        #     and lower(c."recordedDate")::timestamp <= '{self.config["end_datetime"]}'
-        #     """,
-        # )
-
         self.default_pyrate_extraction(
             "condition",
             request_params=self.config["condition_params"],
@@ -640,47 +572,6 @@ class FHIRExtractor:
         store_df(grouped_patients, output_path, "MetaPatient")
 
     def build_observation(self):
-        # # TODO: All the other values and component are missing
-        # # todo be aware that an observation can also be a clinical impression ->
-        # """ "partOf": [
-        # {
-        #     "reference": "ClinicalImpression/33dc847fb17d023ffae62eb5888c721fe092fd2df08f13580241531cfc875210"
-        # }
-        # ]"""
-        # self.default_metrics_extraction(
-        #     output_name="observation",
-        #     query=f"""
-        #     select obs.id as metrics_id,
-        #     obs.id as observation_id,
-        #     lower("effectiveDateTime")::timestamp as effectiveDateTime,
-        #     issued,
-        #     replace(obs_sub.reference, 'Patient/', '') as patient_id,
-        #     replace(obs_enc.reference, 'Encounter/', '') as encounter_id,
-        #     obs_code.code as code,
-        #     obs_code.display as display,
-        #     obs_vq.value as value_quantity,
-        #     obs_vq.unit as value_unit,
-        #     obs."valueBoolean" as value_boolean,
-        #     obs."valueDateTime" as value_datetime,
-        #     obs."valueInteger" as value_integer,
-        #     obs."valueString" as value_string
-        #     from observation as obs
-        #     join observation_code_coding obs_code on obs._id = obs_code._resource
-        #     join observation_subject obs_sub on obs._id = obs_sub._resource
-        #     join observation_encounter obs_enc on obs._id = obs_enc._resource
-        #     left join "observation_valueQuantity" as obs_vq on obs._id = obs_vq._resource
-        #     left join "observation_valueRatio" as obs_vr on obs._id = obs_vr._resource
-        #     left join "observation_valuePeriod" as obs_per on obs._id = obs_per._resource
-        #     where ('{self.config["start_datetime"]}' <= issued::timestamp
-        #     and issued::timestamp <= '{self.config["end_datetime"]}')
-        #     or ('{self.config["start_datetime"]}' <= lower("effectiveDateTime")::timestamp
-        #     and lower("effectiveDateTime")::timestamp <= '{self.config["end_datetime"]}')
-        #     """,
-        # )
-
-        # todo remove this
-        self.config["end_datetime"] = "2019-01-02"
-
         self.default_pyrate_extraction(
             output_name="observation",
             time_attribute_name="date",
@@ -700,51 +591,6 @@ class FHIRExtractor:
         )
 
     def build_imaging_study(self):
-        # self.default_metrics_extraction(
-        #     output_name="imaging_study",
-        #     query=f"""
-        #     SELECT
-        #       id AS imaging_study_id,
-        #       fhirql_read_codes(status) as status,
-        #       replace(replace(jsonb_path_query(_json, '$.subject.reference')::text, 'Patient/', ''), '"', '') AS "patient_id",
-        #       replace(replace(jsonb_path_query(_json, '$.encounter.reference')::text, 'Encounter/', ''), '"', '') AS "encounter_id",
-        #       replace(replace(jsonb_path_query(_json, '$.basedOn.reference')::text, 'ServiceRequest/', ''), '"', '') AS "service_request_id",
-        #       description AS description,
-        #       lower(started)::timestamp AS started,
-        #       "numberOfSeries" AS number_series,
-        #       "numberOfInstances" AS number_instances,
-        #       jsonb_path_query_array(_json, '$.identifier ? (@.system == "urn:dicom:uid").value') as study_instance_uid,
-        #       jsonb_path_query_array(_json, '$.modality.code') as modality_code,
-        #       jsonb_path_query_array(_json, '$.modality.version') as modality_version,
-        #       jsonb_path_query_array(_json, '$.procedureCode.coding.version') as procedure_version,
-        #       jsonb_path_query_array(_json, '$.procedureCode.coding.display') as procedure_display,
-        #       jsonb_path_query_array(_json, '$.procedureCode.coding.code') as procedure_code,
-        #       jsonb_path_query_array(_json, '$.reasonCode.coding.version') as reason_version,
-        #       jsonb_path_query_array(_json, '$.reasonCode.coding.display') as reason_display,
-        #       jsonb_path_query_array(_json, '$.series.uid') as series_instance_uid,
-        #       jsonb_path_query_array(_json, '$.series.numberOfInstances') as series_instances,
-        #       jsonb_path_query_array(_json, '$.series.number') as series_number,
-        #       jsonb_path_query_array(_json, '$.series.description') as series_description,
-        #       jsonb_path_query_array(_json, '$.series.modality.version') as series_modality_version,
-        #       jsonb_path_query_array(_json, '$.series.modality.code') as series_modality,
-        #       jsonb_path_query_array(_json, '$.series.bodySite.code') as body_site
-        #     from imagingstudy
-        #     where '{self.config["start_datetime"]}' <= lower(started)::timestamp
-        #     and lower(started)::timestamp <= '{self.config["end_datetime"]}'
-        #     """,
-        # )
-
-        # df = self.search.sail_through_search_space_to_dataframe(
-        #     process_function=self.extract_imaging_study,
-        #     resource_type="ImagingStudy",
-        #     request_params=self.config["imaging_study_params"],
-        #     time_attribute_name="started",
-        #     date_init=self.config["start_datetime"],
-        #     date_end=self.config["end_datetime"],
-        # )
-
-        # self.store_pyrate_extraction(df, "imaging_study")
-
         self.default_pyrate_extraction(
             "imaging_study",
             request_params=self.config["imaging_study_params"],
@@ -769,41 +615,6 @@ class FHIRExtractor:
         )
 
     def build_diagnostic_report(self):
-        # self.default_metrics_extraction(
-        #     output_name="diagnostic_report",
-        #     query=f"""
-        #     SELECT
-        #       dr.id AS "diagnostic_report_id",
-        #       lower(dr."effectiveDateTime") AS "effective_datetime",
-        #       dr.issued AS "issued",
-        #       replace(replace(jsonb_path_query(_json, '$.subject.reference')::text, 'Patient/', ''), '"', '') AS "patient_id",
-        #       replace(replace(jsonb_path_query(_json, '$.encounter.reference')::text, 'Encounter/', ''), '"', '') AS "encounter_id",
-        #       replace(replace(jsonb_path_query(_json, '$.imagingStudy.reference')::text, 'ImagingStudy/', ''), '"', '') AS "imaging_study_id",
-        #       jsonb_path_query_array(_json, '$.category.coding.code') AS category,
-        #       jsonb_path_query_array(_json, '$.category.coding.display') AS category_display,
-        #       jsonb_path_query_array(_json, '$.presentedForm.title') AS title,
-        #       jsonb_path_query_array(_json, '$.presentedForm.data') AS data,
-        #       jsonb_path_query_array(_json, '$.presentedForm.contentType') AS content_type,
-        #       jsonb_path_query_array(_json, '$.presentedForm.url') AS url
-        #     FROM diagnosticreport dr
-        #     WHERE ('{self.config["start_datetime"]}' <= LOWER(dr."effectiveDateTime")::timestamp
-        #     AND LOWER(dr."effectiveDateTime") <= '{self.config["end_datetime"]}')
-        #     OR ('{self.config["start_datetime"]}' <= dr.issued::timestamp
-        #     AND dr.issued <= '{self.config["end_datetime"]}');
-        #     """,
-        #     # timestamp_columns=["issued", "effectiveDateTime"],
-        # )
-
-        # df = self.search.sail_through_search_space_to_dataframe(
-        #     resource_type="DiagnosticReport",
-        #     request_params=self.config["diagnostic_report_params"],
-        #     time_attribute_name="effectiveDateTime",
-        #     date_init=self.config["start_datetime"],
-        #     date_end=self.config["end_datetime"],
-        # )
-        # self.store_pyrate_extraction(df, "diagnostic_report")
-
-        # done
         self.default_pyrate_extraction(
             "diagnostic_report",
             request_params=self.config["diagnostic_report_params"],
@@ -890,36 +701,6 @@ class FHIRExtractor:
         pd.DataFrame(failed).to_pickle(document_folder / "failed.pkl")
 
     def build_episode_of_care(self):
-        # self.default_metrics_extraction(
-        #     output_name="episode_of_care",
-        #     query=f"""
-        #     select eoc._id as metrics_id,
-        #     jsonb_path_query(eoc.extension, '$ ? (@.url == "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/Onkozert").valueString') as cert,
-        #     jsonb_path_query(eoc.extension, '$ ? (@.url == "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/Primärfall").valueBoolean') as primary_case,
-        #     jsonb_path_query(eoc.extension, '$ ? (@.url == "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/Primärfalljahr").valueString') as primary_year,
-        #     jsonb_path_query(eoc.extension, '$ ? (@.url == "http://uk-koeln.de/fhir/StructureDefinition/Extension/nNGM/Erstdiagnose").valueDateTime') as first_diagnosis_date,
-        #     jsonb_path_query(eoc.extension, '$.** ? (@.url == "https://uk-essen.de/HIS/Cerner/Medico/TumorDocumentation/TumorIdentifier/Bogen").valueString') as treatment_program,
-        #     replace(eoc_pat.reference, 'Patient/', '') as patient_id,
-        #     lower(start) as start,
-        #     upper("end") as end
-        #     from episodeofcare eoc
-        #     join episodeofcare_patient eoc_pat on eoc_pat._resource = eoc._id
-        #     left join episodeofcare_period eoc_p on eoc_p._resource = eoc._id
-        #     where '{self.config["start_datetime"]}'::timestamp <= lower(start)::timestamp
-        #     and lower(start)::timestamp <= '{self.config["end_datetime"]}'::timestamp
-        #     """,
-        # )
-        # df = self.search.sail_through_search_space_to_dataframe(
-        #     process_function=self.extract_episode_of_care,
-        #     resource_type="EpisodeOfCare",
-        #     request_params=self.config["episode_of_care_params"],
-        #     time_attribute_name="start",
-        #     date_init=self.config["start_datetime"],
-        #     date_end=self.config["end_datetime"],
-        # )
-
-        # self.store_pyrate_extraction(df, "episode_of_care")
-
         self.default_pyrate_extraction(
             "episode_of_care",
             request_params=self.config["episode_of_care_params"],
@@ -964,36 +745,6 @@ class FHIRExtractor:
         if self.skip_build(output_path):
             return
 
-        # self.large_metrics_extraction(
-        #     output_name="service_request",
-        #     query_template="""
-        #     SELECT
-        #       id AS service_request_id,
-        #       fhirql_read_codes(status) AS status,
-        #       replace(replace(jsonb_path_query(_json, '$.subject.reference')::text, 'Patient/', ''), '"', '') AS "patient_id",
-        #       replace(replace(jsonb_path_query(_json, '$.basedOn.reference')::text, 'ServiceRequest/', ''), '"', '') AS "based_service_request_id",
-        #       fhirql_read_codes(intent) as intent,
-        #       fhirql_read_codes(priority) as priority,
-        #       jsonb_path_query_array(_json, '$.code.coding.code') AS code,
-        #       jsonb_path_query_array(_json, '$.code.coding.display') AS code_display,
-        #       jsonb_path_query_array(_json, '$.category.coding.code') AS category_code,
-        #       jsonb_path_query_array(_json, '$.category.coding.display') AS category_display,
-        #       lower("authoredOn") AS authored
-        #     FROM servicerequest
-        #     where "authoredOn" && tstzrange('{}'::date, '{}'::date, '[)')""",
-        # )
-
-        # df = self.search.sail_through_search_space_to_dataframe(
-        #     process_function=self.extract_service_request,
-        #     resource_type="ServiceRequest",
-        #     request_params=self.config["service_request_params"],
-        #     time_attribute_name="authored",
-        #     date_init=self.config["start_datetime"],
-        #     date_end=self.config["end_datetime"],
-        # )
-
-        # self.store_pyrate_extraction(df, "service_request")
-
         self.default_pyrate_extraction(
             "service_request",
             request_params=self.config["service_request_params"],
@@ -1018,32 +769,6 @@ class FHIRExtractor:
 
     # Build Medication DataFrame
     def build_medication(self):
-
-        #     self.large_metrics_extraction(
-        #     output_name="medication",
-        #     query_template="""
-        #     select
-        #         md.id as medication_id,
-        #         md_ad.id as medication_administration_id,
-        #         replace(md_subj.reference, 'Patient/', '') as patient_id,
-        #         replace(md_ct.reference, 'Encounter/', '') as encounter_id,
-        #         text as medication,
-        #         lower("effectiveDateTime")::timestamp as datetime,
-        #         fhirql_read_codes(md_ad.status) as status
-        #     from
-        #         medication md
-        #     join
-        #         medication_code md_cod on md_cod._resource = md._id
-        #     join
-        #         medicationadministration md_ad
-        #         join "medicationadministration_medicationReference" md_ref on md_ref._resource = md_ad._id
-        #     on
-        #         replace(md_ref.reference, 'Medication/', '') = md.id
-        #     join medicationadministration_subject md_subj on md_subj._resource = md_ad._id
-        #     join medicationadministration_context md_ct on md_ct._resource = md_ad._id
-        #     where "effectiveDateTime" && tstzrange('{}'::date, '{}'::date, '[)')""",
-        # )
-
         output_path = self.config["data_dir"] / f"medication{OUTPUT_FORMAT}"
         if self.skip_build(output_path):
             return
