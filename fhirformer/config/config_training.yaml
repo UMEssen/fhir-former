@@ -174,7 +174,7 @@ eval_accumulation_steps: 5
 folders_to_clear: [""]
 
 # Sampling
-num_processes: 30
+num_processes: 50
 # Main column is always a datetime column
 text_sampling_column_maps: {
     "condition": {
@@ -202,7 +202,7 @@ text_sampling_column_maps: {
         "bracket_cols": ["display", "value_quantity", "value_unit"]
     },
     "service_request": {
-        "main_col": "authoredOn",
+        "main_col": "authored",
         "bracket_cols": ["code_display", "category_display"]
     },
     "medication": {
@@ -213,7 +213,7 @@ text_sampling_column_maps: {
         "drop_duplicates": ["patient_id", "encounter_id"],
         "main_col": "start",
         "bracket_cols": [
-          "encounter_id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_ParticipantTypeCode_code", "v3_ParticipantTypeCode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display", "discharge_text", "discharge_place_code", "discharge_place_display"]
+                    "encounter_id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_participanttypecode_code", "v3_participanttypecode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display", "discharge_text", "discharge_place_code", "discharge_place_display"]
     },
     "episode_of_care": {
         "main_col": "start",

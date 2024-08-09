@@ -44,12 +44,15 @@ class DownstreamTask:
         self.prediction_cutoff = prediction_cutoff
         self.model_best_path = config["model_dir"] / "best"
 
-        # Prepare dataset
-        split = (
-            "train"
-            if self.config["max_train_samples"] is None
-            else f"train[:{self.config['max_train_samples']}]"
-        )
+        if config["is_sweep"]:
+            split = "train[:100000]"
+        else:
+            # Prepare dataset
+            split = (
+                "train"
+                if self.config["max_train_samples"] is None
+                else f"train[:{self.config['max_train_samples']}]"
+            )
         self.dataset = load_dataset(str(config["sample_dir"]), split=split)
 
         self.set_up_dataset_labels()

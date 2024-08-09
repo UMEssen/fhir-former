@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 from multiprocessing import Pool
 
+import pandas as pd
 from tqdm import tqdm
 
 from fhirformer.data_preprocessing.encounter_dataset_builder import (
@@ -83,10 +84,14 @@ class ReadmissionDatasetBuilder(EncounterDatasetBuilder):
             if not pat_hist:
                 continue
 
+            condition = resources_before_end.get(
+                "condition", pd.DataFrame(columns=["icd_version", "condition_date"])
+            )
+
             text = (
                 f"{patient_metadata_str}"
                 f"Encounter:\n{self.enc_to_string(enc)}\n\n"
-                f"ICD Version: {self.get_icd_version(resources_before_end['condition'])}\n\n"
+                f"ICD Version: {self.get_icd_version(condition)}\n\n"
                 f"Patient history:\n{pat_hist}"
             )
 

@@ -111,7 +111,12 @@ class EncounterDatasetBuilder:
         pat_df = check_and_read(self.config["task_dir"] / f"patient{OUTPUT_FORMAT}")
         patient_ids = pat_df["patient_id"].unique().tolist()
         random.seed(42)
+
+        if self.config["is_sweep"]:
+            sample_int = 100000 if len(patient_ids) > 100000 else len(patient_ids)
+            patient_ids = random.sample(patient_ids, sample_int)
         random.shuffle(patient_ids)
+        logging.info(f"Total patients: {len(patient_ids)}")
 
         date_columns_dict = {}
         for key, value in self.config["text_sampling_column_maps"].items():

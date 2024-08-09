@@ -165,6 +165,7 @@ def parse_args_local(config) -> argparse.Namespace:
         "--max_train_samples", type=int, default=config["max_train_samples"]
     )
     parser.add_argument("--run_name", type=str, default=None)
+    parser.add_argument("--is_sweep", action="store_true", default=False)
 
     args = parser.parse_args()
 
@@ -194,6 +195,7 @@ def run():
         data_id_components = [arg for arg in bool_args if config.get(arg)]
         data_id_components = [comp[4:] for comp in data_id_components]
         config["data_id"][config["task"]] = "+".join(data_id_components)
+        config["resources_for_task"][config["task"]] = data_id_components
 
     # Create model folder
     config["model"], config["model_name"], config["loaded_model"] = name_from_model(
@@ -223,6 +225,9 @@ def run():
     config["task_dir"].mkdir(parents=True, exist_ok=True)
     logger.info(f"The outputs will be stored in {config['task_dir']}.")
 
+    if "train" in config["step"] or "test" in config["step"] or config["is_sweep"]:
+        init_wandb(config)
+
     if "sampling" in config["step"] and is_main_process():
         if isinstance(pipelines[config["task"]]["generate"], list):
             for pipeline in pipelines[config["task"]]["generate"]:
@@ -231,9 +236,6 @@ def run():
             pipelines[config["task"]]["generate"](config)
         with (config["task_dir"] / "config_sampling.pkl").open("wb") as of:
             pickle.dump(config, of)
-
-    if "train" in config["step"] or "test" in config["step"]:
-        init_wandb(config)
 
     if "train" in config["step"]:
         german_tz = pytz.timezone("Europe/Berlin")
