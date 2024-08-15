@@ -1,10 +1,9 @@
+run_cap: 50
 method: bayes
 metric:
-  name: eval_loss
+  name: eval/loss
   goal: minimize
 parameters:
-  model_checkpoint:
-    values: ["ikim-uk-essen/geberta-base", "ikim-uk-essen/geberta-large", "ikim-uk-essen/geberta-xlarge"]
   use_condition:
     values: [true, false]
   use_procedure:

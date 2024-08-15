@@ -9,7 +9,6 @@ from datasets import load_dataset
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
-    IntervalStrategy,
     Trainer,
     TrainingArguments,
 )
@@ -45,7 +44,10 @@ class DownstreamTask:
         self.model_best_path = config["model_dir"] / "best"
 
         if config["is_sweep"]:
-            split = "train[:100000]"
+            dataset = load_dataset(str(config["sample_dir"]), split="train")
+            dataset = dataset.shuffle(seed=42)
+            num_samples = min(100000, len(dataset))
+            self.dataset = dataset.select(range(num_samples))
         else:
             # Prepare dataset
             split = (
@@ -53,7 +55,7 @@ class DownstreamTask:
                 if self.config["max_train_samples"] is None
                 else f"train[:{self.config['max_train_samples']}]"
             )
-        self.dataset = load_dataset(str(config["sample_dir"]), split=split)
+            self.dataset = load_dataset(str(config["sample_dir"]), split=split)
 
         self.set_up_dataset_labels()
 
@@ -105,16 +107,20 @@ class DownstreamTask:
             output_dir=self.config["model_dir"],
             num_train_epochs=self.epochs,
             per_device_train_batch_size=self.batch_size,
+            per_device_eval_batch_size=self.batch_size,
             logging_dir=self.config["model_dir"] / "logs",
-            evaluation_strategy="epoch",
+            evaluation_strategy="steps",
+            eval_steps=5000,
             save_total_limit=2,
-            save_strategy=IntervalStrategy.EPOCH,
+            save_strategy="steps",
+            save_steps=5000,
             fp16=False,
             weight_decay=weight_decay,
             learning_rate=learning_rate,
             load_best_model_at_end=True,
             metric_for_best_model="eval_loss",
             greater_is_better=False,
+            warmup_steps=500,
         )
 
     def set_up_models(self, num_labels: int):
@@ -169,7 +175,7 @@ class DownstreamTask:
         self.model_best_path.mkdir(parents=True, exist_ok=True)
 
         # logging steps twice per epoch
-        training_args.logging_steps = len(self.train_dataset) // self.batch_size // 2
+        training_args.logging_steps = len(self.train_dataset) // self.batch_size // 5
 
         self.trainer = Trainer(
             model=self.model,

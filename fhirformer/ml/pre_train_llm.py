@@ -163,21 +163,13 @@ class Pretrainer:
             overwrite_output_dir=True,
             num_train_epochs=self.config["num_train_epochs"],
             per_device_train_batch_size=self.config["batch_size"],  # per device
+            per_device_eval_batch_size=self.config["batch_size"],  # per device
             save_total_limit=2,
             report_to="wandb",
             learning_rate=learning_rate,
             weight_decay=weight_decay,
             save_strategy=IntervalStrategy.EPOCH,
             fp16=False,
-            # These values below are all needed for early stopping, loading the best model at end
-            # and evaluation
-            #
-            # eval_accumulation_steps=self.config["eval_accumulation_steps"],  # tune
-            # evaluation_strategy="epoch",
-            # load_best_model_at_end=True,
-            # per_device_eval_batch_size=1,  # per device
-            # metric_for_best_model="loss",
-            # greater_is_better=False,
         )
 
         train_dataset, val_dataset = self.build_datasets(disable_validation=True)

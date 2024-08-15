@@ -24,13 +24,13 @@ data_id: {
 
 # Training params
 use_roformer: False
-batch_size: 2
-num_train_epochs: 250
+batch_size: 16
+num_train_epochs: 50
 max_train_samples: null # 300000
 max_test_samples: null # 300000
 train_ratio: 0.8
 learning_rate: {
-  "default": 2e-5,
+  "default": 1e-5,
   "ds_icd": { "default": 1e-6, "severinsimmler/xlm-roberta-longformer-large-16384": 2e-5 },
   "ds_readmission": { "default": 1e-5 },
   "pretrain_fhir": { "default": 2e-7 },
@@ -38,13 +38,13 @@ learning_rate: {
 weight_decay: {
   "default": 0,
   "ds_image": {"default": 0},
-  "ds_readmission": {"default": 0.01, "bert-base-german-cased": 0},
+  "ds_readmission": {"default": 0, "bert-base-german-cased": 0.01},
   "pretrain_documents": {"default": 0},
 }
 
 load_from_file: False
 truncation: "longest_first"
-model_checkpoint: "bert-base-german-cased"
+model_checkpoint: "ikim-uk-essen/geberta-base"
 
 # Enforce run and not read cache
 rerun_cache: False
