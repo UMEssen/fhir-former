@@ -107,7 +107,7 @@ class MortalityRiskDatasetBuilder(EncounterDatasetBuilder):
                     "sample_start": str(sample_start),
                     "duration": (enc.end - enc.start).days,
                     "text": text,
-                    "label": decesased_during_encounter,
+                    "labels": decesased_during_encounter,
                 }
             )
         return sample_list
