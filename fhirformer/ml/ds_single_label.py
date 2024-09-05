@@ -42,6 +42,7 @@ class SingleLabelTrainer(DownstreamTask):
         self.dataset = self.dataset.map(
             lambda x: {"labels": mapping_dict[x["decoded_labels"]]},
             desc="Transforming labels to one-hot encoding",
+            num_proc=int(self.config["num_processes"]*0.5)
         )
 
     def count_labels(self):

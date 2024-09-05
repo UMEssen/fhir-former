@@ -5,6 +5,8 @@ from pathlib import Path
 
 import numpy as np
 import wandb
+import warnings
+import torch
 from datasets import load_dataset
 from transformers import (
     AutoModelForSequenceClassification,
@@ -20,6 +22,7 @@ from fhirformer.ml.util import get_param_for_task_model, split_dataset
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
 
+warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
 
 class DownstreamTask:
     def __init__(
@@ -44,7 +47,11 @@ class DownstreamTask:
         self.model_best_path = config["model_dir"] / "best"
 
         if config["is_sweep"]:
-            dataset = load_dataset(str(config["sample_dir"]), split="train")
+            dataset = load_dataset(
+                str(config["sample_dir"]),
+                split="train",
+                num_proc=int(self.config["num_processes"]*0.5),
+            )
             dataset = dataset.shuffle(seed=42)
             num_samples = min(100000, len(dataset))
             self.dataset = dataset.select(range(num_samples))
@@ -55,7 +62,11 @@ class DownstreamTask:
                 if self.config["max_train_samples"] is None
                 else f"train[:{self.config['max_train_samples']}]"
             )
-            self.dataset = load_dataset(str(config["sample_dir"]), split=split)
+            self.dataset = load_dataset(
+                str(config["sample_dir"]),
+                split=split,
+                num_proc=int(self.config["num_processes"]*0.5),
+            )
 
         self.set_up_dataset_labels()
 
@@ -109,7 +120,7 @@ class DownstreamTask:
             per_device_train_batch_size=self.batch_size,
             per_device_eval_batch_size=self.batch_size,
             logging_dir=self.config["model_dir"] / "logs",
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             eval_steps=5000,
             save_total_limit=2,
             save_strategy="steps",
@@ -136,7 +147,7 @@ class DownstreamTask:
 
             tokenizer = AutoTokenizer.from_pretrained(model_name)
             tokenizer.save_pretrained(str(model_path))
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_checkpoint"])
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_checkpoint"], weights_only=True)
 
     def set_up_dataset_labels(self):
         # Doesn't do anything, the dataset stays like it was
@@ -156,6 +167,7 @@ class DownstreamTask:
                 max_length=None,
             ),
             desc="Running tokenizer on dataset",
+            num_proc=int(self.config["num_processes"]*0.5),
         )
 
     @staticmethod
@@ -200,6 +212,10 @@ class DownstreamTask:
 
     def test(self):
         logger.info("Evaluating the model on the test dataset...")
+
+        # Ensure the test dataset labels are in the correct format
+        # self.test_dataset = self.cast_labels_to_long(self.test_dataset)
+
         test_results = self.trainer.evaluate(
             eval_dataset=self.test_dataset, metric_key_prefix="test"
         )

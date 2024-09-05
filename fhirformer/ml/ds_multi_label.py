@@ -71,6 +71,7 @@ class MultiLabelTrainer(DownstreamTask):
                     ]
                 ),
             },
+            num_proc=int(self.config["num_processes"]*0.5),
             desc="Transforming labels to one-hot encoding",
         )
 
@@ -91,8 +92,8 @@ class MultiLabelTrainer(DownstreamTask):
                 "The dataset cannot be balanced because one option only has zeros."
             )
             return
-        negatives = self.train_dataset.filter(lambda x: sum(x["labels"]) == 0)
-        positives = self.train_dataset.filter(lambda x: sum(x["labels"]) > 0)
+        negatives = self.train_dataset.filter(lambda x: sum(x["labels"]) == 0, num_proc=int(self.config["num_processes"]*0.5))
+        positives = self.train_dataset.filter(lambda x: sum(x["labels"]) > 0, num_proc=int(self.config["num_processes"]*0.5))
         self.train_dataset = interleave_datasets(
             [positives, negatives],
             probabilities=[0.9, 0.1],
