@@ -91,6 +91,7 @@ class MortalityRiskDatasetBuilder(EncounterDatasetBuilder):
                     deceased_date >= enc.start
                     and deceased_date <= enc.end + timedelta(days=1)
                 )
+                decesased_during_encounter = 1 if decesased_during_encounter else 0
 
             text = (
                 f"{patient_metadata_str}"
