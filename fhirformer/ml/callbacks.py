@@ -18,8 +18,6 @@ class BestScoreLoggingCallback(TrainerCallback):
         "eval_samples_per_second",
         "learning_rate",
         "epoch",
-        "loss",
-        "eval_loss",
     ]
 
     def __init__(self):
@@ -68,32 +66,6 @@ class TrainingLossLoggingCallback(TrainerCallback):
         ):
             logs["train_loss"] = np.round(state.log_history[-1]["loss"], 4)
             wandb.log({"train_loss": logs["train_loss"]})
-
-
-class DelayedEarlyStoppingCallback(TrainerCallback):
-    def __init__(
-        self,
-        early_stopping_patience: int,
-        early_stopping_threshold: float,
-        delay_epochs: int,
-    ):
-        super().__init__()
-        self.delay_epochs = delay_epochs
-        self.early_stopping_callback = EarlyStoppingCallback(
-            early_stopping_patience=early_stopping_patience,
-            early_stopping_threshold=early_stopping_threshold,
-        )
-
-    def on_evaluate(self, args, state, control, metrics=None, **kwargs):
-        if state.epoch > self.delay_epochs:
-            if state.epoch == self.delay_epochs + 1:
-                logger.info(
-                    f"Delaying early stopping for {self.delay_epochs} epochs..."
-                )
-            control = self.early_stopping_callback.on_evaluate(
-                args, state, control, metrics, **kwargs
-            )
-        return control
 
 
 class PerplexityLoggingCallback(TrainerCallback):

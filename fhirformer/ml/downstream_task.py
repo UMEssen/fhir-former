@@ -14,9 +14,9 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+from transformers import EarlyStoppingCallback
 
 from fhirformer.helper.util import get_labels_info
-from fhirformer.ml.callbacks import DelayedEarlyStoppingCallback
 from fhirformer.ml.util import get_param_for_task_model, split_dataset
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class DownstreamTask:
         self.config = config
         self.model_checkpoint = config["model_checkpoint"]
         self.batch_size = config["batch_size"]
-        self.epochs = 4 if config["debug"] else config["num_train_epochs"]
+        self.epochs = 10 if config["debug"] else config["num_train_epochs"]
         self.train_ratio = config["train_ratio"]
         self.problem_type = problem_type
         self.model, self.tokenizer = None, None
@@ -114,6 +114,7 @@ class DownstreamTask:
                 self.config["model"],
             )
         )
+
         self.training_arguments = dict(
             output_dir=self.config["model_dir"],
             num_train_epochs=self.epochs,
@@ -121,10 +122,12 @@ class DownstreamTask:
             per_device_eval_batch_size=self.batch_size,
             logging_dir=self.config["model_dir"] / "logs",
             eval_strategy="steps",
-            eval_steps=5000,
+            eval_steps=0.01, # adapt depending on dataset size / epochs
+            logging_strategy="steps",
+            logging_steps=0.005,
             save_total_limit=2,
             save_strategy="steps",
-            save_steps=5000,
+            save_steps=0.01,
             fp16=False,
             weight_decay=weight_decay,
             learning_rate=learning_rate,
@@ -186,9 +189,6 @@ class DownstreamTask:
         training_args = TrainingArguments(**self.training_arguments)
         self.model_best_path.mkdir(parents=True, exist_ok=True)
 
-        # logging steps twice per epoch
-        training_args.logging_steps = len(self.train_dataset) // self.batch_size // 5
-
         self.trainer = Trainer(
             model=self.model,
             args=training_args,
@@ -196,11 +196,10 @@ class DownstreamTask:
             eval_dataset=self.val_dataset,
             compute_metrics=self.compute_metrics,
             callbacks=[
-                DelayedEarlyStoppingCallback(
-                    early_stopping_patience=3,  # stop training after 3 steps with no improvement
-                    early_stopping_threshold=0.01,  # consider it an improvement if the metric changes by at least 0.01
-                    delay_epochs=2,
-                ),
+                EarlyStoppingCallback(
+                    early_stopping_patience=5,
+                    early_stopping_threshold=0.01,
+                )
             ],
         )
 
