@@ -15,14 +15,17 @@ from transformers import (
     TrainingArguments,
 )
 from transformers import EarlyStoppingCallback
+import os
+from pathlib import Path
 
 from fhirformer.helper.util import get_labels_info
-from fhirformer.ml.util import get_param_for_task_model, split_dataset
+from fhirformer.ml.util import get_param_for_task_model, split_dataset, remove_samples
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
+warnings.filterwarnings("ignore", message="Was asked to gather along dimension 0, but all input tensors were scalars; will instead unsqueeze and return a vector.", module="torch.nn.parallel._functions")
 
 class DownstreamTask:
     def __init__(
@@ -209,6 +212,9 @@ class DownstreamTask:
 
         self.test()
 
+        if self.config['is_sweep']:
+            remove_samples()
+         
     def test(self):
         logger.info("Evaluating the model on the test dataset...")
 

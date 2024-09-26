@@ -135,3 +135,27 @@ def resolve_paths(input_dict):
         return d
 
     return resolve_dict_paths(input_dict)
+
+def remove_samples():
+    # remove data, dirs recursively 
+    datastore_dir = self.config["task_dir"] / f"data_stores_{self.config['data_id'][self.config['task']]}"
+    data_jsonl_dir = self.config["task_dir"] / f"sampled_{self.config['data_id'][self.config['task']]}"
+    data_file_dir = self.config["task_dir"] / f"all_{self.config['data_id'][self.config['task']]}.json"
+    
+    for dir in [datastore_dir, data_jsonl_dir]:
+        if dir.exists():
+            for file in dir.iterdir():
+                try:
+                    file.unlink()
+                except Exception as e:
+                    logging.info(f"Error removing file {file}: {e}")
+            try:
+                dir.rmdir()
+            except Exception as e:
+                logging.info(f"Error removing directory {dir}: {e}")
+    
+    if data_file_dir.exists():
+        try:
+            data_file_dir.unlink()
+        except Exception as e:
+            logging.info(f"Error removing file {data_file_dir}: {e}")
