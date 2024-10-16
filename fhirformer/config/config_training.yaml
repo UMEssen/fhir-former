@@ -1,5 +1,5 @@
 task: None
-debug: False
+debug: True
 
 # General params for setting the folders and the extraction
 start_datetime: "2018-01-01"

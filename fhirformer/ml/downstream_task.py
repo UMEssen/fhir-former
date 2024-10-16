@@ -1,31 +1,33 @@
 import json
 import logging
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
 import wandb
-import warnings
-import torch
 from datasets import load_dataset
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
+    EarlyStoppingCallback,
     Trainer,
     TrainingArguments,
 )
-from transformers import EarlyStoppingCallback
-import os
-from pathlib import Path
 
 from fhirformer.helper.util import get_labels_info
-from fhirformer.ml.util import get_param_for_task_model, split_dataset, remove_samples
+from fhirformer.ml.util import get_param_for_task_model, remove_samples, split_dataset
 
 logger = logging.getLogger(__name__)
 os.environ["WANDB_LOG_MODEL"] = "end"
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="torch")
-warnings.filterwarnings("ignore", message="Was asked to gather along dimension 0, but all input tensors were scalars; will instead unsqueeze and return a vector.", module="torch.nn.parallel._functions")
+warnings.filterwarnings(
+    "ignore",
+    message="Was asked to gather along dimension 0, but all input tensors were scalars; will instead unsqueeze and return a vector.",
+    module="torch.nn.parallel._functions",
+)
+
 
 class DownstreamTask:
     def __init__(
@@ -38,7 +40,7 @@ class DownstreamTask:
         self.config = config
         self.model_checkpoint = config["model_checkpoint"]
         self.batch_size = config["batch_size"]
-        self.epochs = 10 if config["debug"] else config["num_train_epochs"]
+        self.epochs = 1 if config["debug"] else config["num_train_epochs"]
         self.train_ratio = config["train_ratio"]
         self.problem_type = problem_type
         self.model, self.tokenizer = None, None
@@ -53,7 +55,7 @@ class DownstreamTask:
             dataset = load_dataset(
                 str(config["sample_dir"]),
                 split="train",
-                num_proc=int(self.config["num_processes"]*0.5),
+                num_proc=int(self.config["num_processes"] * 0.5),
             )
             dataset = dataset.shuffle(seed=42)
             num_samples = min(100000, len(dataset))
@@ -68,15 +70,15 @@ class DownstreamTask:
             self.dataset = load_dataset(
                 str(config["sample_dir"]),
                 split=split,
-                num_proc=int(self.config["num_processes"]*0.5),
+                num_proc=int(self.config["num_processes"] * 0.5),
             )
 
+        self.test_dataset = load_dataset(str(config["sample_dir"]), split="test")
         self.set_up_dataset_labels()
 
         self.train_dataset, self.val_dataset = split_dataset(
             self.dataset, train_ratio=self.train_ratio
         )
-        self.test_dataset = load_dataset(str(config["sample_dir"]), split="test")
         get_labels_info(
             labels=(
                 self.train_dataset["decoded_labels"]
@@ -93,14 +95,23 @@ class DownstreamTask:
             ),
             additional_string="Validation",
         )
+        get_labels_info(
+            labels=(
+                self.test_dataset["decoded_labels"]
+                if "decoded_labels" in self.test_dataset.features
+                else self.test_dataset["labels"]
+            ),
+            additional_string="Test",
+        )
         logger.info(
             f"Total samples: {len(self.dataset)}, "
             f"train: {len(self.train_dataset)} "
             f"({len(self.train_dataset) / len(self.dataset) * 100:.2f}%), "
             f"validation: {len(self.val_dataset)} "
             f"({len(self.val_dataset) / len(self.dataset) * 100:.2f}%)."
+            f"test: {len(self.test_dataset)} "
+            f"({len(self.test_dataset) / len(self.dataset) * 100:.2f}%)."
         )
-
         weight_decay = float(
             get_param_for_task_model(
                 config,
@@ -124,8 +135,8 @@ class DownstreamTask:
             per_device_train_batch_size=self.batch_size,
             per_device_eval_batch_size=self.batch_size,
             logging_dir=self.config["model_dir"] / "logs",
-            eval_strategy="steps",
-            eval_steps=0.01, # adapt depending on dataset size / epochs
+            eval_strategy="steps",  # eval_strategy
+            eval_steps=0.01,  # adapt depending on dataset size / epochs
             logging_strategy="steps",
             logging_steps=0.005,
             save_total_limit=2,
@@ -141,6 +152,7 @@ class DownstreamTask:
         )
 
     def set_up_models(self, num_labels: int):
+        logging.info(f"Setting up model with {num_labels} labels")
         self.model = AutoModelForSequenceClassification.from_pretrained(
             self.model_checkpoint,
             num_labels=num_labels,
@@ -153,9 +165,12 @@ class DownstreamTask:
 
             tokenizer = AutoTokenizer.from_pretrained(model_name)
             tokenizer.save_pretrained(str(model_path))
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_checkpoint"], weights_only=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.config["model_checkpoint"], weights_only=True
+        )
 
     def set_up_dataset_labels(self):
+        print("Setting up dataset labels ds task")
         # Doesn't do anything, the dataset stays like it was
         pass
 
@@ -173,7 +188,7 @@ class DownstreamTask:
                 max_length=None,
             ),
             desc="Running tokenizer on dataset",
-            num_proc=int(self.config["num_processes"]*0.5),
+            num_proc=int(self.config["num_processes"] * 0.5),
         )
 
     @staticmethod
@@ -212,14 +227,11 @@ class DownstreamTask:
 
         self.test()
 
-        if self.config['is_sweep']:
+        if self.config["is_sweep"]:
             remove_samples()
-         
+
     def test(self):
         logger.info("Evaluating the model on the test dataset...")
-
-        # Ensure the test dataset labels are in the correct format
-        # self.test_dataset = self.cast_labels_to_long(self.test_dataset)
 
         test_results = self.trainer.evaluate(
             eval_dataset=self.test_dataset, metric_key_prefix="test"

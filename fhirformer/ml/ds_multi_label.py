@@ -1,12 +1,12 @@
 import logging
 
 import numpy as np
+import wandb
 from datasets import interleave_datasets
 from scipy.special import expit
 from sklearn.preprocessing import MultiLabelBinarizer
 from torch.nn import BCEWithLogitsLoss
 
-import wandb
 from fhirformer.helper.util import timed
 from fhirformer.ml.downstream_task import DownstreamTask
 from fhirformer.ml.util import get_evaluation_metrics
@@ -33,15 +33,15 @@ class MultiLabelTrainer(DownstreamTask):
 
         # Set up the model parameters
         self.set_up_models(num_labels=len(self.lb.classes_))
+        logger.info(f"Number of labels: {len(self.lb.classes_)}")
         self.model.loss = BCEWithLogitsLoss()  # specify loss function for multi-label
         self.set_id_to_label(self.lb.classes_)
         self.tokenize_datasets()
 
-    def set_up_dataset_labels(self):
+    def process_dataset_labels(self, dataset):
         if self.config["task"] == "ds_image":
             selected_labels = ["CR", "CT", "MR", "US", "XA", "NM", "OT"]
-            # TODO: When we are sure that this works, move it to the data preprocessing
-            self.dataset = self.dataset.map(
+            dataset = dataset.map(
                 lambda x: {
                     "labels": [
                         lab if lab in selected_labels else "OT" for lab in x["labels"]
@@ -49,14 +49,12 @@ class MultiLabelTrainer(DownstreamTask):
                 },
                 desc="Reducing the labels to CR, CT, MR, US, NM, OT",
             )
-        # This function gets called within init of the parent class
-        labels = self.lb.fit_transform(self.dataset["labels"])
+        labels = self.lb.fit_transform(dataset["labels"])
         label_freq = np.sum(labels, axis=0)  # sum over the column (each label)
-        # find top 10 most common classes
         self.top10_classes = label_freq.argsort()[-10:][::-1]
         # Transform the labels to one-hot encoding
-        self.dataset = self.dataset.rename_column("labels", "decoded_labels")
-        self.dataset = self.dataset.map(
+        dataset = dataset.rename_column("labels", "decoded_labels")
+        dataset = dataset.map(
             lambda x: {
                 "labels": self.lb.transform([x["decoded_labels"]])[0].astype(
                     np.float32
@@ -71,9 +69,14 @@ class MultiLabelTrainer(DownstreamTask):
                     ]
                 ),
             },
-            num_proc=int(self.config["num_processes"]*0.5),
+            num_proc=int(self.config["num_processes"] * 0.5),
             desc="Transforming labels to one-hot encoding",
         )
+        return dataset
+
+    def set_up_dataset_labels(self):
+        self.test_dataset = self.process_dataset_labels(self.test_dataset)
+        self.dataset = self.process_dataset_labels(self.dataset)
 
     def count_labels(self):
         frequencies = np.sum(self.train_dataset["labels"], axis=1)
@@ -92,8 +95,14 @@ class MultiLabelTrainer(DownstreamTask):
                 "The dataset cannot be balanced because one option only has zeros."
             )
             return
-        negatives = self.train_dataset.filter(lambda x: sum(x["labels"]) == 0, num_proc=int(self.config["num_processes"]*0.5))
-        positives = self.train_dataset.filter(lambda x: sum(x["labels"]) > 0, num_proc=int(self.config["num_processes"]*0.5))
+        negatives = self.train_dataset.filter(
+            lambda x: sum(x["labels"]) == 0,
+            num_proc=int(self.config["num_processes"] * 0.5),
+        )
+        positives = self.train_dataset.filter(
+            lambda x: sum(x["labels"]) > 0,
+            num_proc=int(self.config["num_processes"] * 0.5),
+        )
         self.train_dataset = interleave_datasets(
             [positives, negatives],
             probabilities=[0.9, 0.1],

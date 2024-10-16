@@ -110,6 +110,7 @@ class EncounterDatasetBuilder:
         logger.info("Reading and processing patient...")
         pat_df = check_and_read(self.config["task_dir"] / f"patient{OUTPUT_FORMAT}")
         patient_ids = pat_df["patient_id"].unique().tolist()
+        logging.info(f"Total patients: {len(patient_ids)}")
         random.seed(42)
 
         if self.config["is_sweep"]:
@@ -336,14 +337,13 @@ class EncounterDatasetBuilder:
         raise NotImplementedError("Please implement this for each specific task")
 
     def get_split_samples(self, sample_list: List[Dict], split_ratio: float = 0.8):
-        # Get unique patient IDs
+        # Split the patients ensuring all labels in test are in train
         train_patients, val_patients = get_train_val_split(
-            [sample["patient_id"] for sample in sample_list],
-            sample_by_letter=self.sample_by_letter,
+            [(sample["patient_id"], sample["labels"]) for sample in sample_list],
             split_ratio=split_ratio,
         )
 
-        # Create train and validation samples
+        # Create train and validation samples ensuring no unseen labels in validation set
         train_samples = [
             sample for sample in sample_list if sample["patient_id"] in train_patients
         ]
@@ -417,6 +417,7 @@ class EncounterDatasetBuilder:
 
         self.label_summary(flat_sample_list, "all")
 
+        # todo make sure the dimension of the labels from train to test is the same
         train_samples, test_samples = self.get_split_samples(
             flat_sample_list, split_ratio
         )
