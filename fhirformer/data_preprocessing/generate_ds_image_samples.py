@@ -97,6 +97,9 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 ):
                     continue
 
+                if not labels:
+                    continue
+
                 previous_labels = labels
                 previous_history = pat_hist
 
