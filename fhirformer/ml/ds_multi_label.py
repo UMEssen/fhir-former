@@ -39,16 +39,6 @@ class MultiLabelTrainer(DownstreamTask):
         self.tokenize_datasets()
 
     def process_dataset_labels(self, dataset):
-        if self.config["task"] == "ds_image":
-            selected_labels = ["CR", "CT", "MR", "US", "XA", "NM", "OT"]
-            dataset = dataset.map(
-                lambda x: {
-                    "labels": [
-                        lab if lab in selected_labels else "OT" for lab in x["labels"]
-                    ]
-                },
-                desc="Reducing the labels to CR, CT, MR, US, NM, OT",
-            )
         labels = self.lb.fit_transform(dataset["labels"])
         label_freq = np.sum(labels, axis=0)  # sum over the column (each label)
         self.top10_classes = label_freq.argsort()[-10:][::-1]

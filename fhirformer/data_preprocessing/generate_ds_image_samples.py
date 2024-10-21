@@ -1,5 +1,6 @@
 import logging
 from multiprocessing import Pool
+from typing import List
 
 import pandas as pd
 from tqdm import tqdm
@@ -46,6 +47,12 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                 break
         return results
 
+    @staticmethod
+    def get_filtered_image_labels(labels: List[str]) -> List[str]:
+        selected_labels = ["CR", "CT", "MR", "US", "XA", "NM", "OT"]
+        filtered_labels = [lab if lab in selected_labels else "OT" for lab in labels]
+        return filtered_labels
+
     def process_patient_sliding_window(self, patient_id: str, pat_data: pd.DataFrame):
         """
         - Patient needs at least one imaging study and one encounter
@@ -81,7 +88,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                         "modality_code"
                     ].unique()
                 ).tolist()
-                labels.remove("null")
+                labels = self.get_filtered_image_labels(labels)
 
                 if "nonull" in self.config["data_id"]["ds_image"] and len(labels) == 0:
                     continue
@@ -153,7 +160,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                     "modality_code"
                 ].unique()
             ).tolist()
-            labels.remove("null")
+            labels = self.get_filtered_image_labels(labels)
 
             if "nonull" in self.config["data_id"]["ds_image"] and len(labels) == 0:
                 continue
