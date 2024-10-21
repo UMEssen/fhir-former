@@ -81,6 +81,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                         "modality_code"
                     ].unique()
                 ).tolist()
+                labels.remove("null")
 
                 if "nonull" in self.config["data_id"]["ds_image"] and len(labels) == 0:
                     continue
@@ -152,6 +153,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                     "modality_code"
                 ].unique()
             ).tolist()
+            labels.remove("null")
 
             if "nonull" in self.config["data_id"]["ds_image"] and len(labels) == 0:
                 continue
