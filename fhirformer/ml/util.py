@@ -136,11 +136,11 @@ def resolve_paths(input_dict):
 
     return resolve_dict_paths(input_dict)
 
-def remove_samples():
+def remove_samples(config):
     # remove data, dirs recursively 
-    datastore_dir = self.config["task_dir"] / f"data_stores_{self.config['data_id'][self.config['task']]}"
-    data_jsonl_dir = self.config["task_dir"] / f"sampled_{self.config['data_id'][self.config['task']]}"
-    data_file_dir = self.config["task_dir"] / f"all_{self.config['data_id'][self.config['task']]}.json"
+    datastore_dir = config["task_dir"] / f"data_stores_{config['data_id'][config['task']]}"
+    data_jsonl_dir = config["task_dir"] / f"sampled_{config['data_id'][config['task']]}"
+    data_file_dir = config["task_dir"] / f"all_{config['data_id'][config['task']]}.json"
     
     for dir in [datastore_dir, data_jsonl_dir]:
         if dir.exists():

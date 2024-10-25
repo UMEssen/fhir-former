@@ -40,7 +40,7 @@ class DownstreamTask:
         self.config = config
         self.model_checkpoint = config["model_checkpoint"]
         self.batch_size = config["batch_size"]
-        self.epochs = 1 if config["debug"] else config["num_train_epochs"]
+        self.epochs = 5 if config["debug"] else config["num_train_epochs"]
         self.train_ratio = config["train_ratio"]
         self.problem_type = problem_type
         self.model, self.tokenizer = None, None
@@ -228,7 +228,7 @@ class DownstreamTask:
         self.test()
 
         if self.config["is_sweep"]:
-            remove_samples()
+            remove_samples(config)
 
     def test(self):
         logger.info("Evaluating the model on the test dataset...")
