@@ -228,7 +228,7 @@ class DownstreamTask:
         self.test()
 
         if self.config["is_sweep"]:
-            remove_samples(config)
+            remove_samples(self.config)
 
     def test(self):
         logger.info("Evaluating the model on the test dataset...")

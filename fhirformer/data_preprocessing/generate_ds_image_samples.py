@@ -33,7 +33,7 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
                         executor.imap_unordered(
                             self.process_patient,
                             datastore.patient_list,
-                            chunksize=10,
+                            chunksize=5,
                         ),
                         total=len(datastore.patient_list),
                         desc="Processing patients",
@@ -69,10 +69,13 @@ class ImageDatasetBuilder(EncounterDatasetBuilder):
             )
             previous_history = None
             previous_labels = None
+            max_windows = 30
             # Generate multiple samples from each encounter
-            for date in pd.date_range(
+            for count, date in enumerate(pd.date_range(
                 enc.start + pd.Timedelta(days=1), enc.end - pd.Timedelta(days=1)
-            ):
+            )):
+                if count == max_windows:
+                    break
                 # Get imaging study for encounter duration
                 imaging_study_during_enc = pat_data.filter_patient(
                     patient_id=patient_id,
