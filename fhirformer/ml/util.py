@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Tuple
 
@@ -136,12 +137,16 @@ def resolve_paths(input_dict):
 
     return resolve_dict_paths(input_dict)
 
+
 def remove_samples(config):
-    # remove data, dirs recursively 
-    datastore_dir = config["task_dir"] / f"data_stores_{config['data_id'][config['task']]}"
+    # remove data, dirs recursively
+    datastore_dir = (
+        config["task_dir"] / f"data_stores_{config['data_id'][config['task']]}"
+    )
     data_jsonl_dir = config["task_dir"] / f"sampled_{config['data_id'][config['task']]}"
     data_file_dir = config["task_dir"] / f"all_{config['data_id'][config['task']]}.json"
-    
+    logging.info("Deleted sampling files")
+
     for dir in [datastore_dir, data_jsonl_dir]:
         if dir.exists():
             for file in dir.iterdir():
@@ -153,7 +158,7 @@ def remove_samples(config):
                 dir.rmdir()
             except Exception as e:
                 logging.info(f"Error removing directory {dir}: {e}")
-    
+
     if data_file_dir.exists():
         try:
             data_file_dir.unlink()
