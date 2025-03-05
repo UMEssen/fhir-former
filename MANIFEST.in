@@ -1,0 +1,11 @@
+include LICENSE
+include README.md
+include pyproject.toml
+include poetry.lock
+
+recursive-include fhirformer/config *.yaml *.yml *.json
+recursive-exclude * __pycache__
+recursive-exclude * *.py[cod]
+recursive-exclude * *~
+recursive-exclude * .git
+recursive-exclude * .ipynb_checkpoints
