@@ -18,7 +18,7 @@ FHIRFormer is a transformer-based model for processing and analyzing FHIR (Fast 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/fhirformer.git
+git clone https://github.com/Wizzzard93/fhirformer.git
 cd fhirformer
 
 # Install with Poetry
@@ -29,7 +29,7 @@ poetry install
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/fhirformer.git
+git clone https://github.com/Wizzzard93/fhirformer.git
 cd fhirformer
 
 # Install with pip

@@ -3,7 +3,6 @@ import logging
 import multiprocessing
 import os
 import time
-from datetime import timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Tuple, Union
 
@@ -71,7 +70,7 @@ class FHIRExtractor:
         elif resource == "observation":
             self.build_observation()
         elif resource == "imaging_study":
-            self.build_imaging_study_pyrate()
+            self.build_imaging_study()
         elif resource == "diagnostic_report":
             self.build_diagnostic_report()
             if self.config["download_documents"]:
@@ -138,6 +137,10 @@ class FHIRExtractor:
             df_constraints=self.config["patient_constraints"],
             request_params=self.config["patient_params"],
         )
+
+        if isinstance(df, dict):
+            df = pd.concat(df.values()) if df else pd.DataFrame()
+
         df.drop_duplicates(subset=["patient_id"], inplace=True)
         logging.info(f"numb of patients: {len(df)}")
         self.store_pyrate_extraction(df, "initial_patient")
@@ -220,26 +223,6 @@ class FHIRExtractor:
         df.drop_duplicates(["patient_id"], keep="first", inplace=True)
         store_df(df, output_path, "Patient")
 
-    def default_metrics_extraction(
-        self,
-        output_name: str,
-        query: str,
-        timestamp_columns: List[str] = None,
-        store: bool = True,
-    ):
-        output_path = self.config["data_dir"] / f"{output_name}{OUTPUT_FORMAT}"
-        resource_name = output_name.title().replace("_", "")
-        if self.skip_build(output_path):
-            return
-        df = self.df_from_query(query)
-        for col in timestamp_columns or []:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
-        logger.info(f"Extracted {len(df)} {resource_name}s")
-        if store:
-            store_df(df, output_path, resource_name)
-        else:
-            return df
-
     def store_pyrate_extraction(
         self,
         df: pd.DataFrame,
@@ -259,48 +242,13 @@ class FHIRExtractor:
         else:
             return df
 
-    def large_metrics_extraction(
-        self, query_template: str, output_name: str, store: bool = True
-    ):
-        output_path = self.config["data_dir"] / f"{output_name}{OUTPUT_FORMAT}"
-        resource_name = output_name.title().replace("_", "")
-        if self.skip_build(output_path):
-            return
-
-        time_frame_length = timedelta(days=1)
-        start_datetime = pd.to_datetime(self.config["start_datetime"])
-        end_datetime = pd.to_datetime(self.config["end_datetime"])
-
-        # Initialize an empty list to store DataFrames
-        dfs = []
-        counter = 0
-        # Generate time frames and query for each
-        current_start = start_datetime
-        while current_start < end_datetime:
-            current_end = current_start + time_frame_length
-            query = query_template.format(current_start, current_end)
-
-            # Execute the query and append the resulting DataFrame to the list
-            df = self.df_from_query(query, chunk_size=10000)
-            logger.info(
-                f"Extracted {len(df)} {resource_name}s from time frame {current_start} to {current_end}"
-            )
-            dfs.append(df)
-            counter += len(df)
-            current_start = current_end
-
-        final_df = pd.concat(dfs, ignore_index=True)
-        logger.info(f"Extracted {len(final_df)} {resource_name}s")
-        if store:
-            store_df(final_df, output_path, resource_name)
-        else:
-            return final_df
-
     def default_pyrate_extraction(
         self,
         output_name: str,
         process_function: Callable = None,
-        fhir_paths: Union[List[str], List[Tuple[str, str]]] = None,
+        fhir_paths: Union[
+            List[str], List[Tuple[str, str]], List[Union[str, Tuple[str, str]]]
+        ] = None,
         request_params: Dict[str, str] = None,
         time_attribute_name: str = None,
         explode: List = None,
@@ -337,6 +285,10 @@ class FHIRExtractor:
             df = self.search.sail_through_search_space_to_dataframe(
                 **params,
             )
+
+        if isinstance(df, dict):
+            df = pd.concat(df.values()) if df else pd.DataFrame()
+
         if explode:
             df = df.explode(explode)
 
@@ -393,6 +345,9 @@ class FHIRExtractor:
             ],
         )
 
+        if isinstance(df, dict):
+            df = pd.concat(df.values()) if df else pd.DataFrame()
+
         store_df(df, output_path, "encounter_raw")
 
     def build_encounter(self, minimum_days: int = 2) -> None:
@@ -440,6 +395,10 @@ class FHIRExtractor:
             date_init=self.config["start_datetime"],
             date_end=self.config["end_datetime"],
         )
+
+        if isinstance(df, dict):
+            # If df is a dictionary, extract the DataFrame we need
+            df = pd.concat(df.values()) if df else pd.DataFrame()
 
         bdp = df[df["resource_type"] == "bdp"]
         sr = df[df["resource_type"] == "sr"]
@@ -529,19 +488,26 @@ class FHIRExtractor:
         encs = self.check_and_build_file("encounter")
         encs = encs.drop_duplicates(subset=["patient_id"], keep="first")
 
-        secondary_df = (
-            self.search.trade_rows_for_dataframe(
-                df=encs,
-                df_constraints={"link": "patient_id"},
-                resource_type="Patient",
-                fhir_paths=[
-                    ("linked_patient_id", "link.other.reference"),
-                    ("meta_patient", "id"),
-                ],
-                with_ref=True,
+        secondary_df = self.search.trade_rows_for_dataframe(
+            df=encs,
+            df_constraints={"link": "patient_id"},
+            resource_type="Patient",
+            fhir_paths=[
+                ("linked_patient_id", "link.other.reference"),
+                ("meta_patient", "id"),
+            ],
+            with_ref=True,
+        )
+
+        if isinstance(secondary_df, dict):
+            secondary_df = (
+                pd.concat(secondary_df.values()) if secondary_df else pd.DataFrame()
             )
-            .explode("linked_patient_id")
-            .replace({"Patient/": ""}, regex=True)
+
+        secondary_df = (
+            secondary_df.explode("linked_patient_id").replace(
+                {"Patient/": ""}, regex=True
+            )
         ).drop_duplicates()
 
         secondary_df.reset_index(drop=True).to_feather(
@@ -591,13 +557,6 @@ class FHIRExtractor:
         )
 
     def build_imaging_study(self):
-        self.default_pyrate_extraction(
-            "imaging_study",
-            request_params=self.config["imaging_study_params"],
-            time_attribute_name="started",
-        )
-
-    def build_imaging_study_pyrate(self):
         self.default_pyrate_extraction(
             output_name="imaging_study",
             time_attribute_name="started",
@@ -733,13 +692,6 @@ class FHIRExtractor:
             ],
         )
 
-    def build_service_request_pyrate(self):
-        self.default_pyrate_extraction(
-            output_name="service_request",
-            time_attribute_name="authored",
-            request_params=self.config["service_request_params"],
-        )
-
     def build_service_request(self):
         output_path = self.config["data_dir"] / f"service_request{OUTPUT_FORMAT}"
         if self.skip_build(output_path):
@@ -791,6 +743,10 @@ class FHIRExtractor:
                 ("datetime", "effectiveDateTime"),
             ],
         )
+
+        if isinstance(df_admin, dict):
+            df_admin = pd.concat(df_admin.values()) if df_admin else pd.DataFrame()
+
         df_admin.dropna(subset=["medication_id"], inplace=True)
 
         # 2. Get all medications to get the medication name
@@ -803,6 +759,11 @@ class FHIRExtractor:
                 ("medication", "code.text"),
             ],
         )
+
+        if isinstance(df_medications, dict):
+            df_medications = (
+                pd.concat(df_medications.values()) if df_medications else pd.DataFrame()
+            )
 
         df_admin_filtered = df_medications.merge(
             df_admin, on="medication_id", how="inner"

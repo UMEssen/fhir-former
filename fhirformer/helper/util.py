@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 import time
 from pathlib import Path
 from typing import Tuple, Union
@@ -84,21 +83,3 @@ def get_labels_info(
         counts = counts[:stop_after]
     for label, count in counts:
         logger.info(f"{label}: {count}")
-
-
-def clear_process_data(config):
-    if not config["is_live_prediction"]:
-        if input("Do you really want to delete the cache (y:yes)?:") != "y":
-            exit()
-    folders = config["folders_to_clear"]
-    for folder in folders:
-        for filename in os.listdir(folder):
-            file_path = os.path.join(folder, filename)
-            try:
-                logger.info(f"deleting: {file_path}")
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                logger.info("Failed to delete %s. Reason: %s" % (file_path, e))

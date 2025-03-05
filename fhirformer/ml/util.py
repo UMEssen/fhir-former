@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Tuple
+from typing import Tuple, cast
 
 import numpy as np
 import wandb
@@ -40,9 +40,14 @@ def split_dataset(
         elif "labels" in dataset.column_names:
             labels = dataset["labels"]
 
+    # Convert dataset to a format compatible with StratifiedGroupKFold
+    # We only need indices for the split, so we can use a dummy X
+    X = np.arange(len(dataset))
+    patient_ids = dataset["patient_id"]
+
     # Split the dataset into training and validation sets
     splitter = StratifiedGroupKFold(n_splits=5, random_state=42, shuffle=True)
-    split = splitter.split(dataset, y=labels, groups=dataset["patient_id"])
+    split = splitter.split(X, y=labels, groups=patient_ids)
     train_inds, val_inds = next(split)
     return dataset.select(train_inds), dataset.select(val_inds)
 
@@ -68,11 +73,13 @@ def init_wandb(config):
         resume=config["run_name"] if config["model_checkpoint"] else None,
     )
 
-    wandb.run.log_code(
-        root=".",
-        include_fn=lambda path: path.endswith(".py") or path.endswith(".yaml"),
-        exclude_fn=exclude_fn,
-    )
+    # Check if wandb.run is not None before calling log_code
+    if wandb.run is not None:
+        wandb.run.log_code(
+            root=".",
+            include_fn=lambda path: path.endswith(".py") or path.endswith(".yaml"),
+            exclude_fn=exclude_fn,
+        )
 
 
 def get_evaluation_metrics(
@@ -102,22 +109,26 @@ def get_evaluation_metrics(
         )
     else:
         for average in ["macro", "micro", "weighted"]:
+            # Use type literals for average parameter
+            avg = cast(
+                "str", average
+            )  # This helps the type checker understand average is a valid literal
             metrics[f"{average}_precision"] = precision_score(
                 labels,
                 predictions,
-                average=average,
+                average=avg,  # type: ignore
                 zero_division=zero_division,
             )
             metrics[f"{average}_recall"] = recall_score(
                 labels,
                 predictions,
-                average=average,
+                average=avg,  # type: ignore
                 zero_division=zero_division,
             )
             metrics[f"{average}_f1"] = f1_score(
                 labels,
                 predictions,
-                average=average,
+                average=avg,  # type: ignore
                 zero_division=zero_division,
             )
     return metrics
