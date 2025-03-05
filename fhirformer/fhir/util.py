@@ -49,10 +49,8 @@ def group_meta_patients(group_by_tuple: Tuple[str, pd.DataFrame]) -> List[Dict]:
     birthdate, deceased_date, insurance_type, sex = rows
     # Birthdate must be the same for all patients and must exist
     if len(birthdate) > 1:
-        # TODO: Check if we want to keep the pats that have two dates that
-        #  are less than one year apart
-        # TODO: change this to logger error, currently can't because of multiprocessing
-        # print(f"{patient_ids}: {birthdate}, more than one date found!")
+        # patients with multible birthdates are not considered
+        logging.info(f"{patient_ids}: {birthdate}, more than one date found!")
         return []
     assert len(birthdate) == 1, f"{patient_ids}: {birthdate}"
     birthdate = pd.Timestamp(birthdate[0])

@@ -49,8 +49,7 @@ class MultiLabelTrainer(DownstreamTask):
                 "labels": self.lb.transform([x["decoded_labels"]])[0].astype(
                     np.float32
                 ),
-                # TODO: This is currently a trick to make the class count for the stratification
-                #  we can come up with a better solution
+                # This is currently a trick to make the class count for the stratification
                 "multiclass_labels": sum(
                     [
                         self.lb.classes_.tolist().index(lab)

@@ -104,8 +104,6 @@ def build_cache(config):
 
     non_dependent_resources = get_nondependent_resources(config)
 
-    # TODO: think about merging encounters with based basedon
-    #  Encounter/95e3c9cb3f4b5bd691b9a426096506c44ce070cd63d8643fe572ab7c5d844c2a
     dependent_resources = sorted(["encounter", "patient"])
     # dependent_resources = []
     logger.info(

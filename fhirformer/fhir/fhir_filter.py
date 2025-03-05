@@ -52,7 +52,6 @@ class FHIRFilter:
         else:
             raise NotImplementedError(f"Resource {resource} not supported")
 
-    # TODO: Datetime filtering for each metrics resource
     @staticmethod
     def filter_date(
         start: datetime, end: datetime, resource: pd.DataFrame, date_col: str

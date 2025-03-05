@@ -55,9 +55,7 @@ class MortalityRiskDatasetBuilder(EncounterDatasetBuilder):
         """
         pat_data = datastore.filter_patient(patient_id=patient_id)
 
-        if (
-            len(pat_data.resources["encounter"]) == 0
-        ):  # todo think about only taking patients that died at some point
+        if len(pat_data.resources["encounter"]) == 0:
             return []
 
         sample_list = []

@@ -417,7 +417,6 @@ class EncounterDatasetBuilder:
 
         self.label_summary(flat_sample_list, "all")
 
-        # todo make sure the dimension of the labels from train to test is the same
         train_samples, test_samples = self.get_split_samples(
             flat_sample_list, split_ratio
         )
