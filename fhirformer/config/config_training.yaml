@@ -2,19 +2,21 @@ task: None
 debug: True
 
 # General params for setting the folders and the extraction
-start_datetime: "2018-01-01"
-end_datetime: "2024-01-01"
-run_id: "2018-2024-v1"
-
 # start_datetime: "2018-01-01"
-# end_datetime: "2018-02-02"
-# run_id: "2018-2018-01"
+# end_datetime: "2024-01-01"
+# run_id: "2018-2024-v1"
+
+start_datetime: "2018-01-01"
+end_datetime: "2018-02-02"
+run_id: "2018-2018-01"
 
 root_dir: "/data"
 step: "all"
+# Whether to use the pre-train workflow (split patients into pretrain and downstream sets)
+use_pretrain_workflow: False
 data_id: {
     "ds_readmission": "V1",
-    "ds_image": "V1",
+    "ds_image": "V2",
     "ds_icd": "V1",
     "pretrain_fhir": "V1",
     "pretrain_documents": "V1",
@@ -61,7 +63,7 @@ resources_for_task: {
         "imaging_study",
         "diagnostic_report",
         "biologically_derived_product",
-        "observation",  # todo needs adaption to not only deal with lab values
+        "observation",
         "episode_of_care",
         "medication",
         "service_request",

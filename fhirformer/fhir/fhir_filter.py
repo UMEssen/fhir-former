@@ -86,8 +86,40 @@ class FHIRFilter:
             f"Number of patients before splitting into pretrain and downstream: {len(patients_ids)}"
         )
 
+        # Save all patient IDs
         with (self.config["data_dir"] / "patient_ids.pkl").open("wb") as of:
             pickle.dump(patients_ids, of)
+
+        # Check if pre-train workflow is enabled
+        use_pretrain = self.config.get("use_pretrain_workflow", False)
+
+        if use_pretrain:
+            # Split patients into pretrain and downstream sets
+            pretrain_pats = patients_ids[: len(patients_ids) // 2]
+            downstream_pats = patients_ids[len(patients_ids) // 2 :]
+
+            logger.info(
+                f"Pre-train workflow enabled. There are {len(pretrain_pats)} "
+                f"({len(pretrain_pats) / len(patients_ids):.2f}) patients for pretraining "
+                f"and {len(downstream_pats)} ({len(downstream_pats) / len(patients_ids):.2f}) "
+                f"patients for downstream tasks."
+            )
+        else:
+            # Use all patients for downstream tasks when pre-train workflow is disabled
+            pretrain_pats = pd.DataFrame()  # Empty DataFrame for pretrain
+            downstream_pats = patients_ids  # All patients for downstream
+
+            logger.info(
+                f"Pre-train workflow disabled. Using all {len(downstream_pats)} patients "
+                f"for downstream tasks."
+            )
+
+        # Save the pretrain and downstream patient IDs
+        with (self.config["data_dir"] / "pretrain_patient_ids.pkl").open("wb") as of:
+            pickle.dump(pretrain_pats, of)
+
+        with (self.config["data_dir"] / "downstream_patient_ids.pkl").open("wb") as of:
+            pickle.dump(downstream_pats, of)
 
     def filter_bdp(self):
         output_path = (
@@ -146,7 +178,11 @@ class FHIRFilter:
         return joined
 
     def basic_filtering(
-        self, name: str, output_name: str = None, save: bool = True, is_patient_df=False
+        self,
+        name: str,
+        output_name: Optional[str] = None,
+        save: bool = True,
+        is_patient_df=False,
     ) -> Optional[pd.DataFrame]:
         output_name = name if output_name is None else output_name
         output_path = self.config["task_dir"] / f"{output_name}{OUTPUT_FORMAT}"
