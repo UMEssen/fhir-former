@@ -82,6 +82,65 @@ poetry install --with dev
 pre-commit install
 ```
 
+### Creating New Downstream Tasks
+
+To create a new downstream task:
+
+1. Add your task configuration in `fhirformer/config/config_training.yaml`:
+```yaml
+data_id: {
+    // ... existing tasks ...
+    "ds_your_task": "V1"  # Add your task here
+}
+
+resources_for_task: {
+    "ds_your_task": [
+        # List required FHIR resources for your task
+        "condition",
+        "procedure",
+        # Add other needed resources
+    ]
+}
+```
+
+2. Create a new task builder class that inherits from `EncounterDatasetBuilder`:
+```python
+from fhirformer.data_preprocessing.encounter_dataset_builder import EncounterDatasetBuilder
+
+class YourTaskBuilder(EncounterDatasetBuilder):
+    def process_patient(self, patient_id: str, datastore: DataStore) -> List[Dict]:
+        # Implement your task-specific patient processing logic
+        # Must return a list of dictionaries containing:
+        # - patient_id: str
+        # - text: str (input text)
+        # - labels: Any (task labels)
+        pass
+
+    def global_multiprocessing(self):
+        # Implement multiprocessing logic if needed
+        # Usually can reuse parent class implementation
+        pass
+```
+
+3. Register your task in the CLI:
+```python
+# In fhirformer/cli.py
+TASK_MAPPING = {
+    // ... existing tasks ...
+    "ds_your_task": YourTaskBuilder
+}
+```
+
+4. Run your task:
+```bash
+poetry run fhirformer --task ds_your_task
+```
+
+Key considerations when creating a task:
+- Define required FHIR resources in config_training.yaml
+- Implement data processing logic in process_patient()
+- Structure output as {patient_id, text, labels}
+
 ### Code Quality Tools
 
 - Black for code formatting
