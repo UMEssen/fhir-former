@@ -12,14 +12,16 @@ from fhirformer.fhir.util import (
     OUTPUT_FORMAT,
     check_and_read,
     col_to_datetime,
+    handle_empty_df,
     reduce_cardinality,
     store_df,
 )
 
 logger = logging.getLogger(__name__)
 
-
 # Class FHIRExtractor
+
+
 class FHIRFilter:
     def __init__(self, config):
         self.config = config
@@ -27,7 +29,7 @@ class FHIRFilter:
     def filter(self, resource: str):
         resource = resource.lower()
         if resource == "condition":
-            self.filter_conditions()
+            self.filter_conditions_wrapper()
         elif resource == "encounter":
             self.filter_encounter()
         elif resource == "biologically_derived_product":
@@ -36,17 +38,17 @@ class FHIRFilter:
             self.split_patients()
             self.filter_patient_info()
         elif resource == "procedure":
-            self.filter_procedures()
+            self.filter_procedures_wrapper()
         elif resource == "imaging_study":
-            self.filter_imaging_studies()
+            self.filter_imaging_studies_wrapper()
         elif resource == "observation":
-            self.filter_observation()
+            self.filter_observation_wrapper()
         elif resource == "episode_of_care":
-            self.filter_episode_of_care()
+            self.filter_episode_of_care_wrapper()
         elif resource == "service_request":
-            self.filter_service_request_pyrate()
+            self.filter_service_request_pyrate_wrapper()
         elif resource == "diagnostic_report":
-            self.filter_diagnostic_report()
+            self.filter_diagnostic_report_wrapper()
         elif resource == "medication":
             self.filter_medication()
         else:
@@ -54,7 +56,10 @@ class FHIRFilter:
 
     @staticmethod
     def filter_date(
-        start: datetime, end: datetime, resource: pd.DataFrame, date_col: str
+        start: datetime.datetime,
+        end: datetime.datetime,
+        resource: pd.DataFrame,
+        date_col: str,
     ) -> pd.DataFrame:
         df = resource[
             ((start <= resource[date_col]) & (resource[date_col] <= end))
@@ -141,12 +146,14 @@ class FHIRFilter:
             df[k] = pd.to_datetime(df[k], format=v, utc=True, errors="coerce")
         return df
 
+    @handle_empty_df(required_columns=["patient_id"])
     def filter_by_meta_patients(
         self, df: pd.DataFrame, is_patient_df: bool = False
     ) -> pd.DataFrame:
         # filtering out patients that are not in the patient table
         pats = check_and_read(self.config["data_dir"] / "patient_ids.pkl")
         meta_pats = check_and_read(self.config["data_dir"] / f"patient{OUTPUT_FORMAT}")
+
         filtered_meta = meta_pats[meta_pats["linked_patient_id"].isin(pats)]
 
         joined = pd.merge(
@@ -169,11 +176,11 @@ class FHIRFilter:
         )
 
         if not is_patient_df:
-            joined.drop(
-                labels=["insurance_type", "birth_date", "sex", "deceased_date"],
-                axis=1,
-                inplace=True,
-            )
+            # Only drop columns if they exist
+            cols_to_drop = ["insurance_type", "birth_date", "sex", "deceased_date"]
+            existing_cols = [col for col in cols_to_drop if col in joined.columns]
+            if existing_cols:
+                joined.drop(labels=existing_cols, axis=1, inplace=True)
 
         return joined
 
@@ -197,16 +204,22 @@ class FHIRFilter:
 
     def filter_encounter(self):
         # most filtering is already done in build_encounter
-        self.basic_filtering("encounter")
+        if (df := self.basic_filtering("encounter", save=False)) is None:
+            return
+
+        # Convert dates to datetime with UTC timezone
+        df["start"] = col_to_datetime(df["start"])
+        df["end"] = col_to_datetime(df["end"])
+
+        store_df(df, self.config["task_dir"] / f"encounter{OUTPUT_FORMAT}")
 
     def filter_medication(self):
         if (df := self.basic_filtering("medication", save=False)) is None:
             return
         store_df(df, self.config["task_dir"] / f"medication{OUTPUT_FORMAT}")
 
-    def filter_diagnostic_report(self):
-        if (df := self.basic_filtering("diagnostic_report", save=False)) is None:
-            return
+    @handle_empty_df()
+    def filter_diagnostic_report(self, df: pd.DataFrame) -> pd.DataFrame:
         df["date"] = df.apply(
             lambda x: (
                 x["issued"]
@@ -215,14 +228,14 @@ class FHIRFilter:
             ),
             axis=1,
         )
+
         # if title is a list take only the first
         df["title"] = df["title"].apply(lambda x: x[0] if isinstance(x, list) else x)
         df["original_category_display"] = df["category_display"]
 
         df["category"] = reduce_cardinality(df["category"], take_first=True)
         df["content_type"] = reduce_cardinality(df["content_type"], take_first=True)
-
-        store_df(df, self.config["task_dir"] / f"diagnostic_report{OUTPUT_FORMAT}")
+        return df
 
     def filter_patient_info(self):
         output_path = self.config["task_dir"] / f"patient{OUTPUT_FORMAT}"
@@ -242,13 +255,9 @@ class FHIRFilter:
 
         store_df(df, output_path)
 
-    def filter_procedures(self) -> None:
-        output_path = self.config["task_dir"] / f"procedure{OUTPUT_FORMAT}"
-        if (pros := self.basic_filtering("procedure", save=False)) is None:
-            return
-
+    @handle_empty_df(required_columns=["encounter_id"])
+    def filter_procedures(self, pros: pd.DataFrame) -> pd.DataFrame:
         pros_filtered = pros.dropna(subset=["encounter_id"])
-
         pros_filtered = pros_filtered[
             (pros_filtered["status"] == "completed")
             | (pros_filtered["status"] == "in-progress")
@@ -257,7 +266,7 @@ class FHIRFilter:
 
         pros_filtered["start"] = pros_filtered[
             "effectivedatetimestart_v1"
-        ].combine_first(pros_filtered["effectivedatetimestart_v2"])
+        ].combine_first(pros_filtered["effectivedatetimeend_v2"])
         pros_filtered["end"] = pros_filtered["effectivedatetimeend_v1"].combine_first(
             pros_filtered["effectivedatetimeend_v2"]
         )
@@ -277,16 +286,14 @@ class FHIRFilter:
             ]
         ]
 
-        # Filtering by date of config
+        # Convert dates to datetime with UTC timezone
         pros_filtered["start"] = col_to_datetime(pros_filtered["start"])
         pros_filtered["end"] = col_to_datetime(pros_filtered["end"])
-        store_df(pros_filtered, output_path)
 
-    def filter_conditions(self) -> None:
-        output_path = self.config["task_dir"] / f"condition{OUTPUT_FORMAT}"
-        if (df_cond := self.basic_filtering("condition", save=False)) is None:
-            return
+        return pros_filtered
 
+    @handle_empty_df(required_columns=["encounter_id", "patient_id", "condition_id"])
+    def filter_conditions(self, df_cond: pd.DataFrame) -> pd.DataFrame:
         logging.info(f"Number of conditions before filtering: {len(df_cond)}")
 
         df_cond["code_diagnosis_type"] = reduce_cardinality(
@@ -299,45 +306,84 @@ class FHIRFilter:
         df_cond = df_cond.dropna(subset=["encounter_id", "patient_id", "condition_id"])
 
         logging.info(f"Number of conditions after filtering: {len(df_cond)}")
-        store_df(df_cond, output_path)
+        return df_cond
 
-    def filter_imaging_studies(self):
-        output_path = self.config["task_dir"] / f"imaging_study{OUTPUT_FORMAT}"
-        if (df_img := self.basic_filtering("imaging_study", save=False)) is None:
-            return
+    @handle_empty_df()
+    def filter_imaging_studies(self, df_img: pd.DataFrame) -> pd.DataFrame:
         df_img.rename(columns={"id": "imaging_study_id"}, inplace=True)
         df_img.drop_duplicates(subset=["imaging_study_id"], inplace=True)
-        store_df(df_img, output_path)
+        return df_img
 
-    def filter_observation(self):
-        output_path = self.config["task_dir"] / f"observation{OUTPUT_FORMAT}"
-        if (df_obs := self.basic_filtering("observation", save=False)) is None:
-            return
-
+    @handle_empty_df(required_columns=["value_quantity", "value_unit"])
+    def filter_observation(self, df_obs: pd.DataFrame) -> pd.DataFrame:
         df_obs.dropna(subset=["value_quantity", "value_unit"], inplace=True)
         df_obs["code"] = reduce_cardinality(df_obs["code"], take_first=True)
         df_obs["display"] = reduce_cardinality(df_obs["display"], take_first=True)
+        return df_obs
 
-        store_df(df_obs, output_path)
+    @handle_empty_df()
+    def filter_episode_of_care(self, df_eoc: pd.DataFrame) -> pd.DataFrame:
+        if "treatment_program" in df_eoc.columns:
+            df_eoc["treatment_program"] = df_eoc["treatment_program"].map(
+                TUMOR_TYPE_MAP
+            )
+        return df_eoc
 
-    def filter_episode_of_care(self):
-        output_path = self.config["task_dir"] / f"episode_of_care{OUTPUT_FORMAT}"
-        if (df_eoc := self.basic_filtering("episode_of_care", save=False)) is None:
-            return
-        df_eoc["treatment_program"] = df_eoc["treatment_program"].map(TUMOR_TYPE_MAP)
-        store_df(df_eoc, output_path)
-
-    def filter_service_request_pyrate(self):
-        output_path = self.config["task_dir"] / f"service_request{OUTPUT_FORMAT}"
-        if (df := self.basic_filtering("service_request", save=False)) is None:
-            return
-
+    @handle_empty_df(required_columns=["patient_id", "status"])
+    def filter_service_request(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df[df["status"].isin(["active", "completed", "draft", "unknown"])]
         df.dropna(subset=["patient_id"], inplace=True)
-
         df["category_code"] = reduce_cardinality(df["category_code"], take_first=True)
         df["category_display"] = reduce_cardinality(
             df["category_display"], take_first=True
         )
+        return df
 
-        store_df(df, output_path)
+    def filter_procedures_wrapper(self) -> None:
+        output_path = self.config["task_dir"] / f"procedure{OUTPUT_FORMAT}"
+        if (pros := self.basic_filtering("procedure", save=False)) is None:
+            return
+        result = self.filter_procedures(pros)
+        store_df(result, output_path)
+
+    def filter_conditions_wrapper(self) -> None:
+        output_path = self.config["task_dir"] / f"condition{OUTPUT_FORMAT}"
+        if (df_cond := self.basic_filtering("condition", save=False)) is None:
+            return
+        result = self.filter_conditions(df_cond)
+        store_df(result, output_path)
+
+    def filter_imaging_studies_wrapper(self):
+        output_path = self.config["task_dir"] / f"imaging_study{OUTPUT_FORMAT}"
+        if (df_img := self.basic_filtering("imaging_study", save=False)) is None:
+            return
+        result = self.filter_imaging_studies(df_img)
+        store_df(result, output_path)
+
+    def filter_observation_wrapper(self):
+        output_path = self.config["task_dir"] / f"observation{OUTPUT_FORMAT}"
+        if (df_obs := self.basic_filtering("observation", save=False)) is None:
+            return
+        result = self.filter_observation(df_obs)
+        store_df(result, output_path)
+
+    def filter_episode_of_care_wrapper(self):
+        output_path = self.config["task_dir"] / f"episode_of_care{OUTPUT_FORMAT}"
+        if (df_eoc := self.basic_filtering("episode_of_care", save=False)) is None:
+            return
+        result = self.filter_episode_of_care(df_eoc)
+        store_df(result, output_path)
+
+    def filter_service_request_pyrate_wrapper(self):
+        output_path = self.config["task_dir"] / f"service_request{OUTPUT_FORMAT}"
+        if (df := self.basic_filtering("service_request", save=False)) is None:
+            return
+        result = self.filter_service_request(df)
+        store_df(result, output_path)
+
+    def filter_diagnostic_report_wrapper(self):
+        output_path = self.config["task_dir"] / f"diagnostic_report{OUTPUT_FORMAT}"
+        if (df := self.basic_filtering("diagnostic_report", save=False)) is None:
+            return
+        result = self.filter_diagnostic_report(df)
+        store_df(result, output_path)

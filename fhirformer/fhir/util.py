@@ -184,18 +184,50 @@ def get_text(
 
 
 def col_to_datetime(date_series: pd.Series) -> pd.Series:
-    # some procedure dates are just YYYY-MM-DD and will result in nan values => I don't fucking care right now
-    if date_series.any():
+    """Convert a date series to datetime with consistent timezone handling.
+
+    Args:
+        date_series: Series of dates to convert
+
+    Returns:
+        Series with normalized datetime values in UTC
+    """
+    if date_series.empty or date_series.isna().all():
+        return date_series
+
+    # Try ISO format first
+    date_series = pd.to_datetime(
+        date_series, format="%Y-%m-%dT%H:%M:%S.%f%z", utc=True, errors="coerce"
+    )
+
+    # If that fails, try standard format
+    if date_series.isna().all():
         date_series = pd.to_datetime(
-            date_series, format="%Y-%m-%dT%H:%M:%S.%f%z", utc=True, errors="coerce"
-        ).dt.tz_convert("CET")
+            date_series, format="%Y-%m-%d %H:%M:%S.%f%z", utc=True, errors="coerce"
+        )
 
-        if date_series is pd.NaT:
-            date_series = pd.to_datetime(
-                date_series, format="%Y-%m-%d %H:%M:%S.%f%z", utc=True, errors="coerce"
-            ).dt.tz_convert("CET")
+    # For any remaining strings, try parsing without format
+    if date_series.isna().any():
+        mask = date_series.isna()
+        date_series[mask] = pd.to_datetime(date_series[mask], utc=True, errors="coerce")
 
-        date_series = date_series.dt.tz_localize(None)
+    # Ensure all non-null values have UTC timezone
+    non_null = ~date_series.isna()
+    if non_null.any():
+        # Convert naive datetimes to UTC
+        naive_mask = date_series[non_null].apply(lambda x: x.tzinfo is None)
+        if naive_mask.any():
+            date_series.loc[non_null & naive_mask] = pd.to_datetime(
+                date_series[non_null & naive_mask], utc=True
+            )
+
+        # Convert any remaining timezones to UTC
+        tz_mask = date_series[non_null].apply(lambda x: x.tzinfo is not None)
+        if tz_mask.any():
+            date_series.loc[non_null & tz_mask] = date_series[
+                non_null & tz_mask
+            ].dt.tz_convert("UTC")
+
     return date_series
 
 
@@ -207,3 +239,46 @@ def reduce_cardinality(
     series: pd.Series, set_to_none: bool = False, take_first: bool = False
 ) -> pd.Series:
     return series.apply(lambda x: choose_list_items(x, set_to_none, take_first))
+
+
+def handle_empty_df(required_columns: Optional[List[str]] = None):
+    """
+    A decorator that handles empty DataFrames and required columns.
+
+    Args:
+        required_columns: Optional list of column names that must be present in the DataFrame.
+                        If any of these columns are missing, returns an empty DataFrame.
+
+    Returns:
+        A decorator function that wraps DataFrame processing functions.
+    """
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            # Get the DataFrame from the first argument after self
+            df = args[1] if len(args) > 1 else kwargs.get("df")
+
+            if df is None or df.empty:
+                logger.warning(f"Empty DataFrame passed to {func.__name__}")
+                return pd.DataFrame()
+
+            if required_columns:
+                missing_cols = [
+                    col for col in required_columns if col not in df.columns
+                ]
+                if missing_cols:
+                    logger.warning(
+                        f"Required columns {missing_cols} missing in DataFrame passed to {func.__name__}"
+                    )
+                    return pd.DataFrame()
+
+            try:
+                result = func(*args, **kwargs)
+                return result if result is not None else pd.DataFrame()
+            except Exception as e:
+                logger.error(f"Error in {func.__name__}: {str(e)}")
+                return pd.DataFrame()
+
+        return wrapper
+
+    return decorator

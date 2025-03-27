@@ -215,7 +215,7 @@ text_sampling_column_maps: {
         "drop_duplicates": ["patient_id", "encounter_id"],
         "main_col": "start",
         "bracket_cols": [
-                    "encounter_id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_participanttypecode_code", "v3_participanttypecode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display", "discharge_text", "discharge_place_code", "discharge_place_display"]
+                    "encounter_id", "original_patient_id", "kind", "status", "v3_act_code", "v3_act_code_display", "type_code", "type_display", "fachabteilungsschluessel_code", "fachabteilungsschluessel", "v3_ParticipantTypeCode_code", "v3_ParticipantTypeCode_display", "practitioner_id", "end", "aufnahmeanlass_code", "aufnahmeanlass_display"]
     },
     "episode_of_care": {
         "main_col": "start",

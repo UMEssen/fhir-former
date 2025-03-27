@@ -1,7 +1,8 @@
 import argparse
 import logging
 import pickle
-from datetime import datetime
+import shutil
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytz
@@ -164,6 +165,7 @@ def parse_args_local(config) -> argparse.Namespace:
     )
     parser.add_argument("--run_name", type=str, default=None)
     parser.add_argument("--is_sweep", action="store_true", default=False)
+    parser.add_argument("--live_inference", action="store_true", default=False)
 
     args = parser.parse_args()
 
@@ -171,6 +173,15 @@ def parse_args_local(config) -> argparse.Namespace:
     logger.info(f"Parsed arguments: {vars(args)}")
 
     return args
+
+
+def cleanup_live_inference_dir(root_dir: Path) -> None:
+    """Safely remove all live inference related directories."""
+    live_dir = root_dir / "live_inference"
+    if live_dir.exists():
+        logger.info("Cleaning up previous live inference data...")
+        shutil.rmtree(live_dir)
+        logger.info("Cleanup complete.")
 
 
 def run():
@@ -184,7 +195,24 @@ def run():
             "please change this when you are done testing."
         )
 
-    config["root_dir"] = config["root_dir"] / config["run_id"]
+    if config["live_inference"]:
+        config["step"] = "data+sampling+pred-2-fhir"
+        config["rerun_cache"] = False
+        config["time_delta"] = 30
+        config["start_datetime"] = (
+            datetime.now() - timedelta(days=config["time_delta"])
+        ).strftime("%Y-%m-%d")
+        config["end_datetime"] = (datetime.now()).strftime("%Y-%m-%d")
+        logging.info(
+            f"Running live inference from {config['start_datetime']} to {config['end_datetime']}"
+        )
+        config["root_dir"] = config["root_dir"] / Path("live_inference")
+        if config["rerun_cache"]:
+            cleanup_live_inference_dir(config["root_dir"].parent)
+        logger.info("Running live inference")
+    else:
+        config["root_dir"] = config["root_dir"] / config["run_id"]
+
     config["data_dir"] = config["root_dir"] / "data_raw"
     config["data_dir"].mkdir(parents=True, exist_ok=True)
 
@@ -260,3 +288,7 @@ def run():
         inference.main(config)
         with (config["task_dir"] / "config_test.pkl").open("wb") as of:
             pickle.dump(config, of)
+
+    if "pred-2-fhir" in config["step"]:
+        print("ran")
+        # todo

@@ -42,6 +42,11 @@ class FHIRValidator:
     def generic_validate(self, resource, schema):
         df = check_and_read(self.config["task_dir"] / f"{resource}{OUTPUT_FORMAT}")
 
+        # Skip validation if DataFrame is empty
+        if df.empty:
+            logger.warning(f"Skipping validation for {resource}: DataFrame is empty")
+            return
+
         if resource == "biologically_derived_product":
             df["ausgabe_datetime"] = col_to_datetime(df.ausgabe_datetime)
             df_count = df.ausgabe_datetime.value_counts().sort_index()[:-1]
@@ -51,6 +56,12 @@ class FHIRValidator:
         na_counts = df.isna().sum()
 
         for field_name, is_error in schema:
+            # Skip validation if required column doesn't exist
+            if field_name not in df.columns:
+                logger.warning(
+                    f"Skipping validation for {field_name} in {resource}: Column does not exist"
+                )
+                continue
             self.na_checker(field_name, na_counts, is_error)
 
     @staticmethod

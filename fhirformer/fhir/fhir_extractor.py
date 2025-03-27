@@ -41,6 +41,9 @@ class FHIRExtractor:
             base_url=os.environ["SEARCH_URL"],
             num_processes=90,
             print_request_url=False,
+            cache_folder=Path(self.config["root_dir"] / "cache")
+            if self.config["step"] != "inference"
+            else None,
         )
 
     def skip_build(self, path: Path):
@@ -300,12 +303,18 @@ class FHIRExtractor:
         if self.skip_build(output_path):
             return
 
+        if self.config["step"] == "live_inference":
+            self.config["encounter_params"]["status"] = "in-progress"
+
         df = self.search.sail_through_search_space_to_dataframe(
             resource_type="Encounter",
             request_params=self.config["encounter_params"],
             time_attribute_name="date",
             date_init=self.config["start_datetime"],
-            date_end=self.config["end_datetime"],
+            # For live inference, ongoing encounters with unknown end date are dated to 2099-01-01
+            date_end=self.config["end_datetime"]
+            if not self.config["live_inference"]
+            else "2099-01-01",
             fhir_paths=[
                 ("encounter_id", "id"),
                 ("patient_id", "subject.reference.replace('Patient/', '')"),
