@@ -50,7 +50,11 @@ class EncounterDatasetBuilder:
             self.config["task_dir"]
             / f"data_stores_{self.config['data_id'][self.config['task']]}"
         )
-        self.set_up_data(num_splits=100)
+
+        if self.config["live_inference"]:
+            self.set_up_data(num_splits=30)
+        else:
+            self.set_up_data(num_splits=100)
 
     def set_up_data(
         self,

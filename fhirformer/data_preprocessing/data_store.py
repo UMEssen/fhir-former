@@ -79,7 +79,7 @@ def select_resources(
 
 @dataclass
 class DataStore:
-    patient_df: pd.DataFrame
+    patient_df: pd.DataFrame  # type: ignore
     patient_list: List[str]
     resources: Dict[str, pd.DataFrame]
     date_columns: Dict[str, str]
@@ -92,7 +92,7 @@ class DataStore:
         target_resource=None,
         end_inclusive: bool = False,
         start_inclusive: bool = True,
-    ):
+    ) -> "DataStore":
         filtered_patient = self.patient_df[self.patient_df.patient_id == patient_id]
 
         if target_resource:
