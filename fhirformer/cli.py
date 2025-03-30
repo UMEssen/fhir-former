@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytz
-import wandb
 import yaml
 
 from fhirformer.data_preprocessing import (
@@ -25,7 +24,13 @@ from fhirformer.helper.util import (
     name_from_model,
     timed,
 )
-from fhirformer.ml import ds_multi_label, ds_single_label, inference, pre_train_llm
+from fhirformer.ml import (
+    ds_multi_label,
+    ds_single_label,
+    inference,
+    pre_train_llm,
+    predict_2_fhir,
+)
 from fhirformer.ml.util import init_wandb
 
 pipelines = {
@@ -166,6 +171,18 @@ def parse_args_local(config) -> argparse.Namespace:
     parser.add_argument("--run_name", type=str, default=None)
     parser.add_argument("--is_sweep", action="store_true", default=False)
     parser.add_argument("--live_inference", action="store_true", default=False)
+    parser.add_argument(
+        "--wandb_artifact",
+        type=str,
+        help="WandB artifact path in format 'entity/project/artifact:version'",
+        default=None,
+    )
+    parser.add_argument(
+        "--wandb_project",
+        type=str,
+        help="WandB project name",
+        default="fhirformer_ds_v2",
+    )
 
     args = parser.parse_args()
 
@@ -197,12 +214,14 @@ def run():
 
     if config["live_inference"]:
         config["step"] = "data+sampling+pred-2-fhir"
-        config["rerun_cache"] = False
-        config["time_delta"] = 30
+        config["rerun_cache"] = True
+        config["time_delta"] = 15
         config["start_datetime"] = (
             datetime.now() - timedelta(days=config["time_delta"])
         ).strftime("%Y-%m-%d")
-        config["end_datetime"] = (datetime.now()).strftime("%Y-%m-%d")
+        config["end_datetime"] = (datetime.now() + timedelta(days=1)).strftime(
+            "%Y-%m-%d"
+        )
         logging.info(
             f"Running live inference from {config['start_datetime']} to {config['end_datetime']}"
         )
@@ -252,7 +271,7 @@ def run():
     logger.info(f"The outputs will be stored in {config['task_dir']}.")
 
     if "train" in config["step"] or "test" in config["step"] or config["is_sweep"]:
-        init_wandb(config)
+        run = init_wandb(config)
 
     if "sampling" in config["step"] and is_main_process():
         if isinstance(pipelines[config["task"]]["generate"], list):
@@ -273,7 +292,7 @@ def run():
             / (
                 current_time_german
                 + "_"
-                + (wandb.run.id if not config["debug"] else "debug")
+                + (run.id if run and not config["debug"] else "debug")
             )
         )
 
@@ -285,10 +304,10 @@ def run():
         config["model_checkpoint"] = config["model_dir"] / "best"
 
     if "test" in config["step"]:
-        inference.main(config)
+        inference.main(config)  # Use original inference for test step
         with (config["task_dir"] / "config_test.pkl").open("wb") as of:
             pickle.dump(config, of)
 
     if "pred-2-fhir" in config["step"]:
-        print("ran")
-        # todo
+        logger.info("Running live inference...")
+        predict_2_fhir.main(config)  # Use new inference_csv for live predictions

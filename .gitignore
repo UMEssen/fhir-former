@@ -10,3 +10,5 @@ __pycache__
 fhir_former.code-workspace
 fhirformer/config/config_training.yaml
 jupyter/
+artifacts/
+fhirformer/artifacts/
