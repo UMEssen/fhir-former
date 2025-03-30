@@ -211,6 +211,12 @@ class FHIRFilter:
         df["start"] = col_to_datetime(df["start"])
         df["end"] = col_to_datetime(df["end"])
 
+        if self.config["live_inference"]:
+            df.sort_values(by="start", inplace=True)
+            df = df[df["start"] <= datetime.datetime.now(datetime.timezone.utc)]
+            df = df[df["end"] >= datetime.datetime.now(datetime.timezone.utc)]
+            df = df.groupby("patient_id").last().reset_index()
+
         store_df(df, self.config["task_dir"] / f"encounter{OUTPUT_FORMAT}")
 
     def filter_medication(self):

@@ -370,13 +370,9 @@ class FHIRExtractor:
             inplace=True,
         )
 
-        # Filter to keep only case encounters
-        enc_filtered = enc_filtered[enc_filtered["kind"].str.contains("Case")]
-        # Filter to keep only inpatient encounters (stationary clinic encounters)
-        # enc_filtered = enc_filtered[enc_filtered["v3-ActCode"] == "IMP"]
-
-        enc_filtered["start"] = pd.to_datetime(enc_filtered["start"])
-        enc_filtered["end"] = pd.to_datetime(enc_filtered["end"])
+        # Convert to datetime and ensure timezone awareness more robustly
+        enc_filtered["start"] = pd.to_datetime(enc_filtered["start"], utc=True)
+        enc_filtered["end"] = pd.to_datetime(enc_filtered["end"], utc=True)
 
         # Filter encounters with duration <= 2 days
         enc_filtered = enc_filtered[
