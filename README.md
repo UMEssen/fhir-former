@@ -1,6 +1,6 @@
 # FHIRFormer
 
-FHIRFormer is a transformer-based model for processing and analyzing FHIR (Fast Healthcare Interoperability Resources) data. It provides tools for pretraining models on FHIR data and documents, as well as downstream tasks like ICD coding, image analysis, and main diagnosis prediction.
+FHIRFormer is a transformer-based model for processing and analyzing FHIR (Fast Healthcare Interoperability Resources) data. It provides tools for pretraining models on FHIR data and documents, as well as downstream tasks like ICD coding, image analysis, readmission prediction, and mortality prediction.
 
 ## Features
 
@@ -10,7 +10,10 @@ FHIRFormer is a transformer-based model for processing and analyzing FHIR (Fast 
 - Downstream tasks:
   - ICD coding
   - Medical image analysis
-  - Main diagnosis prediction
+  - Readmission prediction
+  - Mortality prediction
+  - Main ICD prediction
+- Live inference capabilities for FHIR server integration
 
 ## Installation
 
@@ -42,10 +45,10 @@ pip install -e .
 
 ```bash
 # Using Poetry
-poetry run fhirformer --task [task_name]
+poetry run fhirformer --task [task_name] [options]
 
 # If installed with pip
-fhirformer --task [task_name]
+fhirformer --task [task_name] [options]
 ```
 
 Available tasks:
@@ -54,7 +57,47 @@ Available tasks:
 - `pretrain_fhir_documents`: Pretrain on both FHIR and documents
 - `ds_icd`: Downstream task for ICD coding
 - `ds_image`: Downstream task for image analysis
-- `ds_main_diag`: Downstream task for main diagnosis prediction
+- `ds_readmission`: Downstream task for readmission prediction
+- `ds_mortality`: Downstream task for mortality prediction
+- `ds_main_icd`: Downstream task for main ICD prediction
+
+Common options:
+- `--root_dir`: Specify the root directory for data and outputs
+- `--wandb`: Enable Weights & Biases logging
+- `--model_checkpoint`: Path to trained model or huggingface model name
+- `--debug`: Run in debug mode
+- `--step`: Specify steps to run (data, sampling, train, test, all)
+- `--max_train_samples`: Maximum number of training samples
+- `--run_name`: Custom name for the run
+- `--live_inference`: Enable live inference mode
+- `--use_*`: Toggle specific FHIR resources (e.g., `--use_imaging_study`, `--use_condition`, etc.)
+
+### Live Inference
+
+FHIRFormer supports live inference from FHIR servers. When using `--live_inference`, the model will:
+1. Download ongoinng encounters from FHIR
+2. Generate "live" samples
+3. Make predictions
+4. Push predictions as RiskAssesment resource to FHIR
+
+Example for image prediction task:
+```bash
+python -m fhirformer \
+    --live_inference \
+    --task ds_image \
+    --use_imaging_study=True \
+    --use_episode_of_care=True \
+    --wandb_artifact="ship-ai-autopilot/fhirformer_ds_v2/model-o1u3iat3:v1"
+```
+
+This command will:
+- Enable live inference mode
+- Use the image analysis task
+- Process imaging studies and episode of care data
+- Load the specified model from Weights & Biases artifacts
+- Make predicitons and send them to FHIR
+
+> **Important**: The `--wandb_artifact` parameter is required for live inference. It specifies which trained model to use for predictions. It is cached once it is downloaded once.
 
 ### Docker
 
@@ -69,6 +112,12 @@ python -m fhirformer --task [task_name]
 ## Configuration
 
 Configuration files are stored in the `fhirformer/config` directory. You can modify these files to customize the behavior of the models and training processes.
+
+The main configuration file is `config_training.yaml` which contains:
+- Data configurations
+- Model parameters
+- Training settings
+- Task-specific configurations
 
 ## Development
 
@@ -125,9 +174,12 @@ class YourTaskBuilder(EncounterDatasetBuilder):
 3. Register your task in the CLI:
 ```python
 # In fhirformer/cli.py
-TASK_MAPPING = {
+pipelines = {
     // ... existing tasks ...
-    "ds_your_task": YourTaskBuilder
+    "ds_your_task": {
+        "generate": your_task_generator.main,
+        "train": ds_single_label.main,  # or ds_multi_label.main
+    }
 }
 ```
 
@@ -140,6 +192,7 @@ Key considerations when creating a task:
 - Define required FHIR resources in config_training.yaml
 - Implement data processing logic in process_patient()
 - Structure output as {patient_id, text, labels}
+- Choose appropriate training pipeline (single_label or multi_label)
 
 ### Code Quality Tools
 
