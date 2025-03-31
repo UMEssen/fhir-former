@@ -1,6 +1,6 @@
-# FHIRFormer
+# FHIR-Former
 
-FHIRFormer is a transformer-based model for processing and analyzing FHIR (Fast Healthcare Interoperability Resources) data. It provides tools for pretraining models on FHIR data and documents, as well as downstream tasks like ICD coding, image analysis, readmission prediction, and mortality prediction.
+FHIR-Former is a transformer-based model for processing and analyzing FHIR (Fast Healthcare Interoperability Resources) data. It provides tools for pretraining models on FHIR data and documents, as well as downstream tasks like ICD coding, image analysis, readmission prediction, and mortality prediction.
 
 ## Features
 
@@ -74,7 +74,7 @@ Common options:
 
 ### Live Inference
 
-FHIRFormer supports live inference from FHIR servers. When using `--live_inference`, the model will:
+FHIR-Former supports live inference from FHIR servers. When using `--live_inference`, the model will:
 1. Download ongoinng encounters from FHIR
 2. Generate "live" samples
 3. Make predictions
@@ -206,12 +206,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Citation
 
-If you use FHIRFormer in your research, please cite:
+If you use FHIR-Former in your research, please cite:
 
 ```
 @software{fhirformer2024,
   author = {Engelke, Merlin and Baldini, Giulia},
-  title = {FHIRFormer: A Transformer-based Model for FHIR Data},
+  title = {FHIR-Former: A Transformer-based Model for FHIR Data},
   year = {2024},
   publisher = {University Hospital Essen},
   url = {https://github.com/yourusername/fhirformer}
