@@ -210,11 +210,11 @@ If you use FHIR-Former in your research, please cite:
 
 ```
 @software{fhirformer2024,
-  author = {Engelke, Merlin and Baldini, Giulia},
-  title = {FHIR-Former: A Transformer-based Model for FHIR Data},
+  author = {Engelke, Merlin, Baldini, Giulia, Jens Kleesiek, Felix Nensa, Amin Dada},
+  title = {Improving Clinical Decision Making with FHIR and Large Language Models},
   year = {2024},
   publisher = {University Hospital Essen},
-  url = {https://github.com/yourusername/fhirformer}
+  url = {https://github.com/UMEssen/fhirformer}
 }
 ```
 
