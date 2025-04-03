@@ -4,11 +4,9 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 from urllib.parse import parse_qs, urlparse
 
-import pandas as pd
 import requests
 from fhir.resources import meta, riskassessment
 from fhir.resources.codeableconcept import CodeableConcept
@@ -18,7 +16,7 @@ from fhir.resources.reference import Reference
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from fhirformer.ml import inference_csv
+from fhirformer.ml import inference
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +24,8 @@ logger = logging.getLogger(__name__)
 SEARCH_URL = os.getenv("SEARCH_URL", "https://ship.ume.de/app/FHIR/r4")
 BASIC_AUTH = os.getenv("BASIC_AUTH", "https://ship.ume.de/app/Auth/v1/basicAuth")
 REFRESH_AUTH = os.getenv("REFRESH_AUTH", "https://ship.ume.de/app/Auth/v1/refresh")
-FHIR_USER = os.getenv("FHIR_USER", "")  # Default to empty string instead of None
-FHIR_PASSWORD = os.getenv(
-    "FHIR_PASSWORD", ""
-)  # Default to empty string instead of None
+FHIR_USER = os.getenv("FHIR_USER", "")
+FHIR_PASSWORD = os.getenv("FHIR_PASSWORD", "")
 
 # Configure retry strategy
 retry_strategy = Retry(
@@ -145,7 +141,8 @@ class FHIRPredictor:
     def create_risk_assessment(
         self,
         patient_id: str,
-        prediction: float,
+        prediction: str,
+        probability: float,
         text: str,
         basis_resources: List[Reference],
         model_name: str,
@@ -212,7 +209,7 @@ class FHIRPredictor:
             note=[{"text": f"Input text: {text}"}],
             prediction=[
                 {
-                    "probabilityDecimal": float(prediction),
+                    "probabilityDecimal": float(probability),
                     "whenPeriod": Period(
                         start=now,
                         end=now + dt.timedelta(days=1),
@@ -297,15 +294,6 @@ class FHIRPredictor:
             logger.error(f"Failed to push RiskAssessment: {str(e)}")
             return False
 
-    def extract_patient_id(self, text: str) -> Optional[str]:
-        """Extract patient ID from text."""
-        # Extract patient_id from the text metadata
-        for line in text.split("\n"):
-            if line.startswith("Patient metadata:"):
-                # The patient_id should be in the JSON data
-                return None  # Will be provided directly from JSON
-        return None
-
     def get_basis_resources(
         self, text: str, patient_id: str, encounter_id: str, sample_start: str
     ) -> List[Reference]:
@@ -363,68 +351,83 @@ class FHIRPredictor:
 
         return basis
 
-    def process_predictions(self, predictions_file: Path) -> None:
-        """Process predictions from CSV and create FHIR resources."""
-        # Read predictions and original data
-        predictions_df = pd.read_csv(predictions_file)
+    def process_predictions(self, predictions_data: Dict) -> None:
+        """Process predictions and create FHIR resources."""
+        if not predictions_data:
+            logger.error("No predictions data provided")
+            return
 
-        # Construct correct path for original data
-        original_data_path = (
-            Path(self.config["sample_dir"]).parent
-            / "all_samples_imaging_study+episode_of_care.json"
-        )
-        logger.info(f"Reading original data from: {original_data_path}")
-        original_data = pd.read_json(original_data_path)
+        texts = predictions_data.get("texts", [])
+        predictions = predictions_data.get("predictions", [])
+        probabilities = predictions_data.get("probabilities", [])
 
-        # Reset index to use it for merging
-        predictions_df = predictions_df.reset_index()
-        original_data = original_data.reset_index()
-
-        # Merge predictions with original data
-        merged_data = pd.merge(
-            original_data,  # Keep original data first to preserve all columns
-            predictions_df[
-                ["probabilities", "predicted_label"]
-            ],  # Only take prediction columns
-            left_index=True,
-            right_index=True,
-            how="left",
-        )
+        if not texts or not predictions or not probabilities:
+            logger.error("Missing required prediction data")
+            return
 
         # Get model name from config
         model_name = self.config.get("model_name", "unknown_model")
 
-        logger.info(f"Processing {len(merged_data)} predictions for model {model_name}")
+        logger.info(f"Processing {len(texts)} predictions for model {model_name}")
 
         # Process each prediction
-        for i, row in enumerate(merged_data.iterrows()):
-            data = row[1]
+        for i, (text, prediction, probability) in enumerate(
+            zip(texts, predictions, probabilities)
+        ):
+            try:
+                # Extract patient_id and other metadata from text
+                patient_id = None
+                encounter_id = None
+                sample_start = None
 
-            # Skip if probability is NaN
-            if pd.isna(data["probabilities"]):
-                logger.warning(f"Skipping prediction {i + 1} due to NaN probability")
-                continue
+                for line in text.split("\n"):
+                    if "Patient metadata:" in line:
+                        # Extract patient_id from metadata
+                        metadata_lines = text.split("Patient metadata:\n")[1].split(
+                            "\n"
+                        )
+                        for meta_line in metadata_lines:
+                            if meta_line.startswith("patient_id"):
+                                patient_id = meta_line.split("\t")[1].strip()
+                    elif "Encounter:" in line:
+                        # Extract encounter_id and sample_start from encounter info
+                        encounter_lines = text.split("Encounter:\n")[1].split("\n")
+                        for enc_line in encounter_lines:
+                            if enc_line.startswith("id"):
+                                encounter_id = enc_line.split("\t")[1].strip()
+                            elif enc_line.startswith("Beginn"):
+                                sample_start = enc_line.split("\t")[1].strip()
 
-            # Create and push risk assessment
-            risk = self.create_risk_assessment(
-                patient_id=data["patient_id"],
-                prediction=float(data["probabilities"]),  # Ensure it's a float
-                text=data["text"],
-                basis_resources=self.get_basis_resources(
-                    data["text"],
-                    data["patient_id"],
-                    data["encounter_id"],
-                    data["sample_start"],
-                ),
-                model_name=model_name,
-            )
+                if not all([patient_id, encounter_id, sample_start]):
+                    logger.warning(
+                        f"Missing required metadata for prediction {i + 1}, skipping. "
+                        f"patient_id: {patient_id}, encounter_id: {encounter_id}, sample_start: {sample_start}"
+                    )
+                    continue
 
-            success = self.push_to_fhir(risk)
-            if success:
-                logger.info(f"Processed prediction {i + 1}/{len(merged_data)}")
-                break
-            else:
-                logger.error(f"Failed to process prediction {i + 1}/{len(merged_data)}")
+                # Create and push risk assessment
+                risk = self.create_risk_assessment(
+                    patient_id=str(patient_id),
+                    prediction=str(prediction),
+                    probability=float(probability),
+                    text=text,
+                    basis_resources=self.get_basis_resources(
+                        text=text,
+                        patient_id=str(patient_id),
+                        encounter_id=str(encounter_id),
+                        sample_start=str(sample_start),
+                    ),
+                    model_name=model_name,
+                )
+
+                success = self.push_to_fhir(risk)
+                if success:
+                    logger.info(f"Processed prediction {i + 1}/{len(texts)}")
+                else:
+                    logger.error(f"Failed to process prediction {i + 1}/{len(texts)}")
+
+            except Exception as e:
+                logger.error(f"Error processing prediction {i + 1}: {str(e)}")
 
 
 def main(config: Dict) -> None:
@@ -434,15 +437,22 @@ def main(config: Dict) -> None:
         if config.get("model_checkpoint"):
             logger.info(f"Using model from checkpoint: {config['model_checkpoint']}")
 
-        # First run inference to get predictions
+        # Run inference using inference.py
         logger.info("Running inference to generate predictions...")
-        inference_results = inference_csv.main(config)
-        predictions_file = Path(inference_results["predictions_path"])
-        logger.info(f"Predictions saved to: {predictions_file}")
+        inference_results = inference.main(
+            config, num_wandb_samples=0
+        )  # Don't log to wandb for live inference
+
+        if not inference_results:
+            logger.error("No inference results returned")
+            return
 
         # Login to FHIR server
         logger.info("Logging into FHIR server...")
         token = fhir_login()
+        if not token:
+            logger.error("Failed to get FHIR token")
+            return
         logger.info("Successfully logged into FHIR server")
 
         # Initialize predictor with task-specific configuration
@@ -450,7 +460,7 @@ def main(config: Dict) -> None:
 
         # Process predictions and push to FHIR
         logger.info("Processing predictions and pushing to FHIR...")
-        predictor.process_predictions(predictions_file)
+        predictor.process_predictions(inference_results)
 
         logger.info("Completed processing predictions and pushing to FHIR")
 
