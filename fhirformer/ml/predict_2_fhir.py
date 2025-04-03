@@ -108,6 +108,39 @@ class FHIRPredictor:
             versionId=None,
             _versionId=None,
         )
+        # Task-specific configurations
+        self.task_configs = {
+            "ds_image": {
+                "system": "https://ship.ume.de/fhir/ml/imaging-modality",
+                "display_prefix": "Predicted Imaging Modality",
+                "resource_type": "ImagingStudy",
+            },
+            "ds_icd": {
+                "system": "https://ship.ume.de/fhir/ml/icd-code",
+                "display_prefix": "Predicted ICD Code",
+                "resource_type": "Condition",
+            },
+            "ds_readmission": {
+                "system": "https://ship.ume.de/fhir/ml/readmission",
+                "display_prefix": "Predicted Readmission Risk",
+                "resource_type": "Encounter",
+            },
+            "ds_mortality": {
+                "system": "https://ship.ume.de/fhir/ml/mortality",
+                "display_prefix": "Predicted Mortality Risk",
+                "resource_type": "Encounter",
+            },
+        }
+        task = config.get("task", "ds_image")
+        self.task_config = self.task_configs.get(
+            task,
+            {
+                "system": "https://ship.ume.de/fhir/ml/unknown",
+                "display_prefix": "Prediction",
+                "resource_type": "Observation",
+            },
+        )
+        logger.info(f"Using task configuration for: {task}")
 
     def create_risk_assessment(
         self,
@@ -145,6 +178,10 @@ class FHIRPredictor:
                 identifier=None,
                 extension=[],
                 id=None,
+                fhir_comments=None,
+                _display=None,
+                _reference=None,
+                _type=None,
             ),
             occurrenceDateTime=now,
             method=CodeableConcept(
@@ -157,11 +194,19 @@ class FHIRPredictor:
                         userSelected=None,
                         extension=[],
                         id=None,
+                        fhir_comments=None,
+                        _code=None,
+                        _display=None,
+                        _system=None,
+                        _userSelected=None,
+                        _version=None,
                     )
                 ],
                 text=f"ML Model: {model_name}",
                 extension=[],
                 id=None,
+                fhir_comments=None,
+                _text=None,
             ),
             basis=basis_resources,
             note=[{"text": f"Input text: {text}"}],
@@ -169,12 +214,48 @@ class FHIRPredictor:
                 {
                     "probabilityDecimal": float(prediction),
                     "whenPeriod": Period(
-                        start=now, end=now + dt.timedelta(days=1), extension=[], id=None
+                        start=now,
+                        end=now + dt.timedelta(days=1),
+                        extension=[],
+                        id=None,
+                        fhir_comments=None,
+                        _end=None,
+                        _start=None,
+                    ),
+                    "qualitativeRisk": CodeableConcept(
+                        coding=[
+                            Coding(
+                                system=self.task_config["system"],
+                                code=str(prediction),
+                                display=f"{self.task_config['display_prefix']}: {str(prediction)}",
+                                version="1.0",
+                                userSelected=None,
+                                extension=[],
+                                id=None,
+                                fhir_comments=None,
+                                _code=None,
+                                _display=None,
+                                _system=None,
+                                _userSelected=None,
+                                _version=None,
+                            )
+                        ],
+                        text=f"{self.task_config['display_prefix']}: {str(prediction)}",
+                        extension=[],
+                        id=None,
+                        fhir_comments=None,
+                        _text=None,
                     ),
                 }
             ],
             language="en",
             implicitRules=None,
+            _implicitRules=None,
+            _language=None,
+            _mitigation=None,
+            _occurrenceDateTime=None,
+            occurrencePeriod=None,
+            _status=None,
             contained=[],
             extension=[],
             modifierExtension=[],
@@ -188,6 +269,7 @@ class FHIRPredictor:
             parent=None,
             performer=None,
             reason=[],
+            fhir_comments=None,
         )
 
         return risk_assessment
@@ -234,15 +316,19 @@ class FHIRPredictor:
         basis.append(
             Reference(
                 reference=f"Encounter/{encounter_id}",
-                display=f"Encounter for patient {patient_id}",  # More descriptive display
+                display=f"Encounter for patient {patient_id}",
                 type="Encounter",
                 identifier=None,
                 extension=[],
                 id=None,
+                fhir_comments=None,
+                _display=None,
+                _reference=None,
+                _type=None,
             )
         )
 
-        # Extract imaging studies from history
+        # Extract resources from history based on task type
         history_started = False
         for line in text.split("\n"):
             if line.startswith("Patient history:"):
@@ -253,21 +339,25 @@ class FHIRPredictor:
                 parts = line.split(":", 1)
                 if len(parts) == 2:
                     date = parts[0]
-                    study = parts[1].strip()
-                    # Only include studies before sample_start
-                    if date <= sample_start and study:  # Ensure study is not empty
-                        # Create a reference for each imaging study
-                        study_id = hashlib.sha256(
-                            f"{patient_id}:{date}:{study}".encode()
+                    resource_data = parts[1].strip()
+                    # Only include resources before sample_start
+                    if date <= sample_start and resource_data:
+                        # Create a reference for each resource
+                        resource_id = hashlib.sha256(
+                            f"{patient_id}:{date}:{resource_data}".encode()
                         ).hexdigest()
                         basis.append(
                             Reference(
-                                reference=f"ImagingStudy/{study_id}",
-                                display=f"{study} on {date}",  # Include date in display
-                                type="ImagingStudy",
+                                reference=f"{self.task_config['resource_type']}/{resource_id}",
+                                display=f"{resource_data} on {date}",
+                                type=self.task_config["resource_type"],
                                 identifier=None,
                                 extension=[],
                                 id=None,
+                                fhir_comments=None,
+                                _display=None,
+                                _reference=None,
+                                _type=None,
                             )
                         )
 
@@ -332,6 +422,7 @@ class FHIRPredictor:
             success = self.push_to_fhir(risk)
             if success:
                 logger.info(f"Processed prediction {i + 1}/{len(merged_data)}")
+                break
             else:
                 logger.error(f"Failed to process prediction {i + 1}/{len(merged_data)}")
 
@@ -339,12 +430,9 @@ class FHIRPredictor:
 def main(config: Dict) -> None:
     """Main function to run predictions and push to FHIR."""
     try:
-        # Update model path to use artifacts directory
-        if not config.get("model_checkpoint"):
-            config["model_checkpoint"] = str(
-                Path("/home/merengelke/fhirformer/artifacts/model-o1u3iat3:v1")
-            )
-            logger.info(f"Using model from artifacts: {config['model_checkpoint']}")
+        # Update model path to use artifacts directory if provided
+        if config.get("model_checkpoint"):
+            logger.info(f"Using model from checkpoint: {config['model_checkpoint']}")
 
         # First run inference to get predictions
         logger.info("Running inference to generate predictions...")
@@ -357,7 +445,7 @@ def main(config: Dict) -> None:
         token = fhir_login()
         logger.info("Successfully logged into FHIR server")
 
-        # Initialize predictor
+        # Initialize predictor with task-specific configuration
         predictor = FHIRPredictor(config, token)
 
         # Process predictions and push to FHIR
