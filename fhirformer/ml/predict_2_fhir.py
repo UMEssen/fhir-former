@@ -21,11 +21,12 @@ from fhirformer.ml import inference
 logger = logging.getLogger(__name__)
 
 # FHIR Server Configuration from .envrc
-SEARCH_URL = os.getenv("SEARCH_URL", "https://ship.ume.de/app/FHIR/r4")
-BASIC_AUTH = os.getenv("BASIC_AUTH", "https://ship.ume.de/app/Auth/v1/basicAuth")
-REFRESH_AUTH = os.getenv("REFRESH_AUTH", "https://ship.ume.de/app/Auth/v1/refresh")
-FHIR_USER = os.getenv("FHIR_USER", "")
-FHIR_PASSWORD = os.getenv("FHIR_PASSWORD", "")
+SEARCH_URL = os.environ["SEARCH_URL"]
+BASIC_AUTH = os.environ["BASIC_AUTH"]
+REFRESH_AUTH = os.environ["REFRESH_AUTH"]
+FHIR_USER = os.environ["FHIR_USER"]
+FHIR_PASSWORD = os.environ["FHIR_PASSWORD"]
+BASE_URL = os.environ["BASE_URL"]
 
 # Configure retry strategy
 retry_strategy = Retry(
@@ -107,22 +108,22 @@ class FHIRPredictor:
         # Task-specific configurations
         self.task_configs = {
             "ds_image": {
-                "system": "https://ship.ume.de/fhir/ml/imaging-modality",
+                "system": f"{BASE_URL}/fhir/ml/imaging-modality",
                 "display_prefix": "Predicted Imaging Modality",
                 "resource_type": "ImagingStudy",
             },
             "ds_icd": {
-                "system": "https://ship.ume.de/fhir/ml/icd-code",
+                "system": f"{BASE_URL}/fhir/ml/icd-code",
                 "display_prefix": "Predicted ICD Code",
                 "resource_type": "Condition",
             },
             "ds_readmission": {
-                "system": "https://ship.ume.de/fhir/ml/readmission",
+                "system": f"{BASE_URL}/fhir/ml/readmission",
                 "display_prefix": "Predicted Readmission Risk",
                 "resource_type": "Encounter",
             },
             "ds_mortality": {
-                "system": "https://ship.ume.de/fhir/ml/mortality",
+                "system": f"{BASE_URL}/fhir/ml/mortality",
                 "display_prefix": "Predicted Mortality Risk",
                 "resource_type": "Encounter",
             },
@@ -131,7 +132,7 @@ class FHIRPredictor:
         self.task_config = self.task_configs.get(
             task,
             {
-                "system": "https://ship.ume.de/fhir/ml/unknown",
+                "system": f"{BASE_URL}/fhir/ml/unknown",
                 "display_prefix": "Prediction",
                 "resource_type": "Observation",
             },
@@ -185,7 +186,7 @@ class FHIRPredictor:
                 coding=[
                     Coding(
                         code=model_name,
-                        system="https://ship.ume.de/fhir/ml/models",
+                        system=f"{BASE_URL}/fhir/ml/models",
                         display=f"FHIRFormer ML Model: {model_name}",
                         version="1.0",
                         userSelected=None,
