@@ -21,11 +21,12 @@ from fhirformer.ml import inference
 logger = logging.getLogger(__name__)
 
 # FHIR Server Configuration from .envrc
-SEARCH_URL = os.getenv("SEARCH_URL", "***REMOVED***")
-BASIC_AUTH = os.getenv("BASIC_AUTH", "***REMOVED***")
-REFRESH_AUTH = os.getenv("REFRESH_AUTH", "***REMOVED***")
-FHIR_USER = os.getenv("FHIR_USER", "")
-FHIR_PASSWORD = os.getenv("FHIR_PASSWORD", "")
+SEARCH_URL = os.environ["SEARCH_URL"]
+BASIC_AUTH = os.environ["BASIC_AUTH"]
+REFRESH_AUTH = os.environ["REFRESH_AUTH"]
+FHIR_USER = os.environ["FHIR_USER"]
+FHIR_PASSWORD = os.environ["FHIR_PASSWORD"]
+BASE_URL = os.environ["BASE_URL"]
 
 # Configure retry strategy
 retry_strategy = Retry(
@@ -107,22 +108,22 @@ class FHIRPredictor:
         # Task-specific configurations
         self.task_configs = {
             "ds_image": {
-                "system": "***REMOVED***",
+                "system": f"{BASE_URL}/fhir/ml/imaging-modality",
                 "display_prefix": "Predicted Imaging Modality",
                 "resource_type": "ImagingStudy",
             },
             "ds_icd": {
-                "system": "***REMOVED***",
+                "system": f"{BASE_URL}/fhir/ml/icd-code",
                 "display_prefix": "Predicted ICD Code",
                 "resource_type": "Condition",
             },
             "ds_readmission": {
-                "system": "***REMOVED***",
+                "system": f"{BASE_URL}/fhir/ml/readmission",
                 "display_prefix": "Predicted Readmission Risk",
                 "resource_type": "Encounter",
             },
             "ds_mortality": {
-                "system": "***REMOVED***",
+                "system": f"{BASE_URL}/fhir/ml/mortality",
                 "display_prefix": "Predicted Mortality Risk",
                 "resource_type": "Encounter",
             },
@@ -131,7 +132,7 @@ class FHIRPredictor:
         self.task_config = self.task_configs.get(
             task,
             {
-                "system": "***REMOVED***",
+                "system": f"{BASE_URL}/fhir/ml/unknown",
                 "display_prefix": "Prediction",
                 "resource_type": "Observation",
             },
@@ -185,7 +186,7 @@ class FHIRPredictor:
                 coding=[
                     Coding(
                         code=model_name,
-                        system="***REMOVED***",
+                        system=f"{BASE_URL}/fhir/ml/models",
                         display=f"FHIRFormer ML Model: {model_name}",
                         version="1.0",
                         userSelected=None,
