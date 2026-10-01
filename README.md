@@ -17,12 +17,18 @@ FHIR-Former is a transformer-based model for processing and analyzing FHIR (Fast
 
 ## Installation
 
-### Using Poetry (Recommended)
+### From PyPI
+
+```bash
+pip install fhirformer
+```
+
+### Using Poetry (for development)
 
 ```bash
 # Clone the repository
-git clone https://github.com/UMEssen/fhirformer.git
-cd fhirformer
+git clone https://github.com/UMEssen/fhir-former.git
+cd fhir-former
 
 # Install with Poetry
 poetry install
@@ -32,8 +38,8 @@ poetry install
 
 ```bash
 # Clone the repository
-git clone https://github.com/UMEssen/fhirformer.git
-cd fhirformer
+git clone https://github.com/UMEssen/fhir-former.git
+cd fhir-former
 
 # Install with pip
 pip install -e .

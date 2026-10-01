@@ -1,4 +1,4 @@
-FROM python:3.9 as poetry2requirements
+FROM python:3.10 as poetry2requirements
 COPY pyproject.toml poetry.lock /
 ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VERSION=1.4.2
