@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Require Python 3.10 or newer (needed by `fhir-pyrate` 0.2.6)
 - Single build configuration in `pyproject.toml` (removed `setup.py` and `MANIFEST.in`)
 
+### Removed
+- Unused `fhir` dependency, which shadowed the `fhir` namespace used by `fhir.resources`
+
 ### Added
 - GitHub Actions workflow that publishes to PyPI when a release is published
 

@@ -1035,16 +1035,6 @@ files = [
 devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benchmark", "pytest-cache", "validictory"]
 
 [[package]]
-name = "fhir"
-version = "0.0.4"
-description = "HL7 FHIR Library"
-optional = false
-python-versions = "*"
-files = [
-    {file = "fhir-0.0.4.tar.gz", hash = "sha256:02053927719c783e44886c8f77e996dae3bcdee3bc971f504118e61e95eca71b"},
-]
-
-[[package]]
 name = "fhir-core"
 version = "1.0.1"
 description = "FHIR Core library"
@@ -5721,4 +5711,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "90dd98e246b48b2f9ef3fefbba4731513e0d2860a0d2b2ac91b61ab310997efc"
+content-hash = "72df8370b8c61f7057f2d084f01d0c3c2a62e54f9410a4a683b1334a38536930"
